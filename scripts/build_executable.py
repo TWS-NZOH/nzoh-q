@@ -48,16 +48,12 @@ def build_executable():
     else:
         icon_path = app_dir / 'static' / 'images' / 'q-icon.svg'
     
-    # Convert paths to forward slashes for cross-platform compatibility
-    # PyInstaller handles forward slashes correctly on Windows
-    def to_spec_path(path):
+    # Convert paths to forward slashes to avoid escape sequence issues on Windows
+    def path_to_spec(path):
         """Convert Path object to string with forward slashes for spec file"""
         return str(path).replace('\\', '/')
     
-    if icon_path.exists():
-        icon_str = f"r'{to_spec_path(icon_path)}'"
-    else:
-        icon_str = 'None'
+    icon_str = f"r'{path_to_spec(icon_path)}'" if icon_path.exists() else 'None'
     
     # Create spec file for PyInstaller
     spec_content = f"""# -*- mode: python ; coding: utf-8 -*-
@@ -66,16 +62,16 @@ import os
 block_cipher = None
 
 a = Analysis(
-    [r'{to_spec_path(scripts_dir / "launcher.py")}'],
-    pathex=[r'{to_spec_path(app_dir)}'],
+    [r'{path_to_spec(scripts_dir / "launcher.py")}'],
+    pathex=[r'{path_to_spec(app_dir)}'],
     binaries=[],
     datas=[
-        (r'{to_spec_path(app_dir / "static")}', 'static'),
-        (r'{to_spec_path(app_dir / "config")}', 'config'),
-        (r'{to_spec_path(app_dir / "b2b_insights_core")}', 'b2b_insights_core'),
-        (r'{to_spec_path(app_dir / "app.py")}', '.'),
-        (r'{to_spec_path(app_dir / "indicators_report.py")}', '.'),
-        (r'{to_spec_path(app_dir / "sales_dashboard.py")}', '.'),
+        (r'{path_to_spec(app_dir / "static")}', 'static'),
+        (r'{path_to_spec(app_dir / "config")}', 'config'),
+        (r'{path_to_spec(app_dir / "b2b_insights_core")}', 'b2b_insights_core'),
+        (r'{path_to_spec(app_dir / "app.py")}', '.'),
+        (r'{path_to_spec(app_dir / "indicators_report.py")}', '.'),
+        (r'{path_to_spec(app_dir / "sales_dashboard.py")}', '.'),
     ],
     hiddenimports=[
         'flask',
@@ -146,7 +142,6 @@ exe = EXE(
         print("\nYou can now distribute this executable to beta testers.")
         
     except subprocess.CalledProcessError as e:
-        # Use simple text instead of Unicode characters for Windows compatibility
         print(f"Build failed: {e}")
         return False
     
