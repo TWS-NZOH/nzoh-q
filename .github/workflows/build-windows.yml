@@ -43,14 +43,36 @@ jobs:
     - name: Install dependencies
       shell: pwsh
       run: |
-        cd ${{ steps.app-dir.outputs.app_dir }}
+        $appDir = "${{ steps.app-dir.outputs.app_dir }}"
+        if ($appDir -eq ".") {
+          $workDir = $env:GITHUB_WORKSPACE
+        } else {
+          $workDir = Join-Path $env:GITHUB_WORKSPACE $appDir
+        }
+        Set-Location $workDir
+        Write-Host "Working directory: $(Get-Location)"
+        Write-Host "Checking for requirements.txt..."
+        if (Test-Path "requirements.txt") {
+          Write-Host "Found requirements.txt"
+        } else {
+          Write-Error "requirements.txt not found in $(Get-Location)"
+          Get-ChildItem | ForEach-Object { Write-Host $_.FullName }
+          exit 1
+        }
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
     - name: Build executable
       shell: pwsh
       run: |
-        cd ${{ steps.app-dir.outputs.app_dir }}
+        $appDir = "${{ steps.app-dir.outputs.app_dir }}"
+        if ($appDir -eq ".") {
+          $workDir = $env:GITHUB_WORKSPACE
+        } else {
+          $workDir = Join-Path $env:GITHUB_WORKSPACE $appDir
+        }
+        Set-Location $workDir
+        Write-Host "Working directory: $(Get-Location)"
         python scripts/build_executable.py
         
     - name: Find executable
