@@ -24,30 +24,59 @@ jobs:
       with:
         python-version: '3.12'
         
-    - name: Install dependencies
-      working-directory: ./appified_report_app
+    - name: Determine app directory
+      id: app-dir
+      shell: pwsh
       run: |
+        # Check if we're in appified_report_app or if it's a subdirectory
+        if (Test-Path "appified_report_app\app.py") {
+          $appDir = "appified_report_app"
+        } elseif (Test-Path "app.py") {
+          $appDir = "."
+        } else {
+          Write-Error "Could not find app.py. Repository structure may be incorrect."
+          exit 1
+        }
+        echo "app_dir=$appDir" >> $env:GITHUB_OUTPUT
+        echo "App directory: $appDir"
+        
+    - name: Install dependencies
+      shell: pwsh
+      run: |
+        cd ${{ steps.app-dir.outputs.app_dir }}
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
     - name: Build executable
-      working-directory: ./appified_report_app
+      shell: pwsh
       run: |
+        cd ${{ steps.app-dir.outputs.app_dir }}
         python scripts/build_executable.py
         
     - name: Find executable
       id: find-exe
-      working-directory: ./appified_report_app
       shell: pwsh
       run: |
-        $exe = Get-ChildItem -Path "dist" -Filter "*.exe" -Recurse | Select-Object -First 1
+        $appDir = "${{ steps.app-dir.outputs.app_dir }}"
+        if ($appDir -eq ".") {
+          $distDir = Join-Path $env:GITHUB_WORKSPACE "dist"
+        } else {
+          $distDir = Join-Path $env:GITHUB_WORKSPACE $appDir "dist"
+        }
+        $exe = Get-ChildItem -Path $distDir -Filter "*.exe" -Recurse | Select-Object -First 1
         if ($exe) {
           echo "exe_path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
           echo "exe_name=$($exe.Name)" >> $env:GITHUB_OUTPUT
+          echo "exe_dir=$distDir" >> $env:GITHUB_OUTPUT
           echo "Found executable: $($exe.FullName)"
         } else {
           echo "No .exe file found in dist directory"
-          Get-ChildItem -Path "dist" -Recurse | ForEach-Object { echo $_.FullName }
+          if (Test-Path $distDir) {
+            echo "Contents of dist directory:"
+            Get-ChildItem -Path $distDir -Recurse | ForEach-Object { echo $_.FullName }
+          } else {
+            echo "Dist directory does not exist: $distDir"
+          }
           exit 1
         }
         
@@ -55,14 +84,14 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: B2B-Insights-Windows-Exe
-        path: appified_report_app/dist/*.exe
+        path: ${{ steps.app-dir.outputs.app_dir }}/dist/*.exe
         retention-days: 30
         
     - name: Create release (if triggered by release)
       if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
-        files: appified_report_app/dist/*.exe
+        files: ${{ steps.app-dir.outputs.app_dir }}/dist/*.exe
         draft: false
         prerelease: false
       env:
