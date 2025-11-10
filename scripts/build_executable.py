@@ -22,7 +22,7 @@ def install_pyinstaller():
     """Install PyInstaller"""
     print("Installing PyInstaller...")
     subprocess.run([sys.executable, '-m', 'pip', 'install', 'pyinstaller'], check=True)
-    print("✓ PyInstaller installed")
+    print("PyInstaller installed")
 
 def build_executable():
     """Build the executable"""
@@ -48,7 +48,16 @@ def build_executable():
     else:
         icon_path = app_dir / 'static' / 'images' / 'q-icon.svg'
     
-    icon_str = f"'{icon_path}'" if icon_path.exists() else 'None'
+    # Convert paths to forward slashes for cross-platform compatibility
+    # PyInstaller handles forward slashes correctly on Windows
+    def to_spec_path(path):
+        """Convert Path object to string with forward slashes for spec file"""
+        return str(path).replace('\\', '/')
+    
+    if icon_path.exists():
+        icon_str = f"r'{to_spec_path(icon_path)}'"
+    else:
+        icon_str = 'None'
     
     # Create spec file for PyInstaller
     spec_content = f"""# -*- mode: python ; coding: utf-8 -*-
@@ -57,16 +66,16 @@ import os
 block_cipher = None
 
 a = Analysis(
-    ['{scripts_dir / "launcher.py"}'],
-    pathex=['{app_dir}'],
+    [r'{to_spec_path(scripts_dir / "launcher.py")}'],
+    pathex=[r'{to_spec_path(app_dir)}'],
     binaries=[],
     datas=[
-        ('{app_dir / "static"}', 'static'),
-        ('{app_dir / "config"}', 'config'),
-        ('{app_dir / "b2b_insights_core"}', 'b2b_insights_core'),
-        ('{app_dir / "app.py"}', '.'),
-        ('{app_dir / "indicators_report.py"}', '.'),
-        ('{app_dir / "sales_dashboard.py"}', '.'),
+        (r'{to_spec_path(app_dir / "static")}', 'static'),
+        (r'{to_spec_path(app_dir / "config")}', 'config'),
+        (r'{to_spec_path(app_dir / "b2b_insights_core")}', 'b2b_insights_core'),
+        (r'{to_spec_path(app_dir / "app.py")}', '.'),
+        (r'{to_spec_path(app_dir / "indicators_report.py")}', '.'),
+        (r'{to_spec_path(app_dir / "sales_dashboard.py")}', '.'),
     ],
     hiddenimports=[
         'flask',
@@ -131,13 +140,14 @@ exe = EXE(
         ], check=True, cwd=str(app_dir))
         
         print("=" * 70)
-        print("✓ Build complete!")
+        print("Build complete!")
         print("=" * 70)
         print(f"\nExecutable location: {dist_dir / 'B2B Insights'}")
         print("\nYou can now distribute this executable to beta testers.")
         
     except subprocess.CalledProcessError as e:
-        print(f"✗ Build failed: {e}")
+        # Use simple text instead of Unicode characters for Windows compatibility
+        print(f"Build failed: {e}")
         return False
     
     return True
