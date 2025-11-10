@@ -38,8 +38,21 @@ def build_executable():
     if build_dir.exists():
         shutil.rmtree(build_dir)
     
+    # Check if icon exists (Windows needs .ico, macOS/Linux can use .svg)
+    import platform
+    if platform.system() == 'Windows':
+        icon_path = app_dir / 'static' / 'images' / 'q-icon.ico'
+        if not icon_path.exists():
+            # Fallback to .svg if .ico doesn't exist (PyInstaller will handle conversion)
+            icon_path = app_dir / 'static' / 'images' / 'q-icon.svg'
+    else:
+        icon_path = app_dir / 'static' / 'images' / 'q-icon.svg'
+    
+    icon_str = f"'{icon_path}'" if icon_path.exists() else 'None'
+    
     # Create spec file for PyInstaller
     spec_content = f"""# -*- mode: python ; coding: utf-8 -*-
+import os
 
 block_cipher = None
 
@@ -98,7 +111,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='{app_dir / "static" / "images" / "q-icon.svg"}' if (app_dir / 'static' / 'images' / 'q-icon.svg').exists() else None,
+    icon={icon_str},
 )
 """
     

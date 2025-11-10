@@ -1,0 +1,70 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'appified_report_app/**'
+      - '.github/workflows/build-windows.yml'
+  workflow_dispatch:  # Allows manual triggering from GitHub UI
+  release:
+    types: [created]  # Trigger on new releases
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        
+    - name: Install dependencies
+      working-directory: ./appified_report_app
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Build executable
+      working-directory: ./appified_report_app
+      run: |
+        python scripts/build_executable.py
+        
+    - name: Find executable
+      id: find-exe
+      working-directory: ./appified_report_app
+      shell: pwsh
+      run: |
+        $exe = Get-ChildItem -Path "dist" -Filter "*.exe" -Recurse | Select-Object -First 1
+        if ($exe) {
+          echo "exe_path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+          echo "exe_name=$($exe.Name)" >> $env:GITHUB_OUTPUT
+          echo "Found executable: $($exe.FullName)"
+        } else {
+          echo "No .exe file found in dist directory"
+          Get-ChildItem -Path "dist" -Recurse | ForEach-Object { echo $_.FullName }
+          exit 1
+        }
+        
+    - name: Upload executable artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: B2B-Insights-Windows-Exe
+        path: appified_report_app/dist/*.exe
+        retention-days: 30
+        
+    - name: Create release (if triggered by release)
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: appified_report_app/dist/*.exe
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
