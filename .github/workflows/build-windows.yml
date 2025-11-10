@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'appified_report_app/**'
-      - '.github/workflows/build-windows.yml'
   workflow_dispatch:  # Allows manual triggering from GitHub UI
   release:
     types: [created]  # Trigger on new releases
@@ -24,80 +21,56 @@ jobs:
       with:
         python-version: '3.12'
         
-    - name: Determine app directory
-      id: app-dir
+    - name: Verify repository structure
       shell: pwsh
       run: |
-        # Check if we're in appified_report_app or if it's a subdirectory
-        if (Test-Path "appified_report_app\app.py") {
-          $appDir = "appified_report_app"
-        } elseif (Test-Path "app.py") {
-          $appDir = "."
-        } else {
-          Write-Error "Could not find app.py. Repository structure may be incorrect."
+        Write-Host "Current directory: $(Get-Location)"
+        Write-Host "Workspace: $env:GITHUB_WORKSPACE"
+        Write-Host "Listing root directory contents:"
+        Get-ChildItem | ForEach-Object { Write-Host "  $($_.Name) ($($_.PSIsContainer ? 'Directory' : 'File'))" }
+        if (-not (Test-Path "app.py")) {
+          Write-Error "app.py not found in repository root"
           exit 1
         }
-        echo "app_dir=$appDir" >> $env:GITHUB_OUTPUT
-        echo "App directory: $appDir"
+        Write-Host "✓ Repository structure verified"
         
     - name: Install dependencies
       shell: pwsh
       run: |
-        $appDir = "${{ steps.app-dir.outputs.app_dir }}"
-        if ($appDir -eq ".") {
-          $workDir = $env:GITHUB_WORKSPACE
-        } else {
-          $workDir = Join-Path $env:GITHUB_WORKSPACE $appDir
-        }
-        Set-Location $workDir
+        Set-Location $env:GITHUB_WORKSPACE
         Write-Host "Working directory: $(Get-Location)"
-        Write-Host "Checking for requirements.txt..."
-        if (Test-Path "requirements.txt") {
-          Write-Host "Found requirements.txt"
-        } else {
-          Write-Error "requirements.txt not found in $(Get-Location)"
-          Get-ChildItem | ForEach-Object { Write-Host $_.FullName }
-          exit 1
-        }
+        Write-Host "Installing dependencies..."
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        # Install dependencies directly (requirements.txt not in repo)
+        pip install Flask>=2.3.0 Flask-CORS>=4.0.0 pandas>=2.0.0 pandas-ta>=0.3.14b0 simple-salesforce>=1.12.0 plotly>=5.15.0 numpy>=1.21.0 python-dateutil>=2.8.0 requests>=2.31.0 Werkzeug>=2.3.0 cryptography>=41.0.0 pyinstaller>=5.13.0
+        Write-Host "✓ Dependencies installed"
         
     - name: Build executable
       shell: pwsh
       run: |
-        $appDir = "${{ steps.app-dir.outputs.app_dir }}"
-        if ($appDir -eq ".") {
-          $workDir = $env:GITHUB_WORKSPACE
-        } else {
-          $workDir = Join-Path $env:GITHUB_WORKSPACE $appDir
-        }
-        Set-Location $workDir
+        Set-Location $env:GITHUB_WORKSPACE
         Write-Host "Working directory: $(Get-Location)"
+        Write-Host "Building executable..."
         python scripts/build_executable.py
         
     - name: Find executable
       id: find-exe
       shell: pwsh
       run: |
-        $appDir = "${{ steps.app-dir.outputs.app_dir }}"
-        if ($appDir -eq ".") {
-          $distDir = Join-Path $env:GITHUB_WORKSPACE "dist"
-        } else {
-          $distDir = Join-Path $env:GITHUB_WORKSPACE $appDir "dist"
-        }
+        $distDir = Join-Path $env:GITHUB_WORKSPACE "dist"
         $exe = Get-ChildItem -Path $distDir -Filter "*.exe" -Recurse | Select-Object -First 1
         if ($exe) {
           echo "exe_path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
           echo "exe_name=$($exe.Name)" >> $env:GITHUB_OUTPUT
           echo "exe_dir=$distDir" >> $env:GITHUB_OUTPUT
-          echo "Found executable: $($exe.FullName)"
+          Write-Host "Found executable: $($exe.FullName)"
         } else {
-          echo "No .exe file found in dist directory"
+          Write-Error "No .exe file found in dist directory"
           if (Test-Path $distDir) {
-            echo "Contents of dist directory:"
-            Get-ChildItem -Path $distDir -Recurse | ForEach-Object { echo $_.FullName }
+            Write-Host "Contents of dist directory:"
+            Get-ChildItem -Path $distDir -Recurse | ForEach-Object { Write-Host $_.FullName }
           } else {
-            echo "Dist directory does not exist: $distDir"
+            Write-Host "Dist directory does not exist: $distDir"
           }
           exit 1
         }
@@ -106,16 +79,15 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: B2B-Insights-Windows-Exe
-        path: ${{ steps.app-dir.outputs.app_dir }}/dist/*.exe
+        path: dist/*.exe
         retention-days: 30
         
     - name: Create release (if triggered by release)
       if: github.event_name == 'release'
       uses: softprops/action-gh-release@v1
       with:
-        files: ${{ steps.app-dir.outputs.app_dir }}/dist/*.exe
+        files: dist/*.exe
         draft: false
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
