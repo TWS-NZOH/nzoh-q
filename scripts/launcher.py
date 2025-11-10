@@ -11,9 +11,18 @@ import webbrowser
 import time
 from pathlib import Path
 
-# Add scripts to path
-scripts_dir = Path(__file__).parent
-app_dir = scripts_dir.parent
+# Handle PyInstaller one-file executable
+# When running from PyInstaller, sys._MEIPASS contains the path to extracted files
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # Running from PyInstaller executable
+    base_path = Path(sys._MEIPASS)
+    app_dir = base_path
+    scripts_dir = base_path / 'scripts'
+else:
+    # Running from source
+    scripts_dir = Path(__file__).parent
+    app_dir = scripts_dir.parent
+
 sys.path.insert(0, str(app_dir))
 sys.path.insert(0, str(scripts_dir))
 
@@ -24,11 +33,11 @@ def check_user_authorization():
         manager = EmbeddedCredentialsManager()
         if manager.is_user_approved():
             username = manager._get_windows_username()
-            print(f"✓ Authorized user detected: {username}")
+            print(f"Authorized user detected: {username}")
             return True
         else:
             username = manager._get_windows_username()
-            print(f"✗ User '{username}' is not authorized")
+            print(f"User '{username}' is not authorized")
             print(f"Approved users: {', '.join(manager.approved_users)}")
             return False
     except Exception as e:
@@ -51,12 +60,16 @@ def check_for_updates():
     try:
         from scripts.auto_updater import AutoUpdater
         
+        # When running from PyInstaller, don't pass app_dir so auto_updater uses permanent location
+        # When running from source, pass app_dir so updates go to source directory
+        update_app_dir = None if getattr(sys, 'frozen', False) else app_dir
+        
         # GitHub repository for auto-updates
         updater = AutoUpdater(
             repo_owner='TWS-NZOH',  # GitHub organization/username
             repo_name='Q',  # Repository name
             branch='main',
-            app_dir=app_dir
+            app_dir=update_app_dir
         )
         
         print("Checking for updates...")
@@ -74,22 +87,35 @@ def launch_app():
     
     if not app_py.exists():
         print(f"Error: {app_py} not found!")
+        print(f"App directory: {app_dir}")
+        print(f"Contents of app_dir: {list(app_dir.iterdir()) if app_dir.exists() else 'Directory not found'}")
         return False
     
     print("=" * 70)
-    print("🚀 B2B Insights - Starting Application")
+    print("B2B Insights - Starting Application")
     print("=" * 70)
     print()
     
     # Launch the app
     try:
-        # Use the same Python interpreter
-        subprocess.run([sys.executable, str(app_py)], cwd=str(app_dir))
+        # Change to app directory
+        os.chdir(str(app_dir))
+        
+        # Import and run the app directly (works with PyInstaller)
+        if getattr(sys, 'frozen', False):
+            # Running from PyInstaller executable - import directly
+            import app
+            app.main()
+        else:
+            # Running from source - use subprocess
+            subprocess.run([sys.executable, str(app_py)], cwd=str(app_dir))
     except KeyboardInterrupt:
         print("\nApplication stopped by user")
         return True
     except Exception as e:
         print(f"Error launching application: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def create_desktop_shortcut():
@@ -110,7 +136,7 @@ def create_desktop_shortcut():
                     f.write(f'cd /d "{app_dir}"\n')
                     f.write(f'"{sys.executable}" "{scripts_dir / "launcher.py"}"\n')
                     f.write(f'pause\n')
-                print(f"✓ Desktop shortcut created: {bat_file}")
+                print(f"Desktop shortcut created: {bat_file}")
         elif sys.platform == "darwin":
             # macOS: Create .command file
             desktop = Path.home() / 'Desktop'
@@ -121,7 +147,7 @@ def create_desktop_shortcut():
                     f.write(f'cd "{app_dir}"\n')
                     f.write(f'"{sys.executable}" "{scripts_dir / "launcher.py"}"\n')
                 os.chmod(command_file, 0o755)
-                print(f"✓ Desktop launcher created: {command_file}")
+                print(f"Desktop launcher created: {command_file}")
     except Exception as e:
         print(f"Warning: Could not create desktop shortcut: {e}")
 
@@ -144,7 +170,7 @@ def main():
     
     # Check if credentials are embedded
     if not check_credentials_embedded():
-        print("⚠️  Warning: Credentials not embedded!")
+        print("Warning: Credentials not embedded!")
         print("The application may not work correctly.")
         print("Please ensure credentials are embedded in config/embedded_credentials.py")
         response = input("\nContinue anyway? (yes/no) [no]: ").strip().lower()

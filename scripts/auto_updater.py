@@ -33,7 +33,19 @@ class AutoUpdater:
         
         if app_dir is None:
             # Default to parent of scripts directory
-            app_dir = Path(__file__).parent.parent
+            if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+                # Running from PyInstaller - use permanent location
+                import platform
+                if platform.system() == 'Windows':
+                    # Use AppData\Local on Windows
+                    app_dir = Path(os.getenv('LOCALAPPDATA', Path.home() / 'AppData' / 'Local')) / 'B2BInsights'
+                else:
+                    # Use ~/.local/share on macOS/Linux
+                    app_dir = Path.home() / '.local' / 'share' / 'B2BInsights'
+                app_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                # Running from source
+                app_dir = Path(__file__).parent.parent
         self.app_dir = Path(app_dir)
         self.update_dir = self.app_dir / '.updates'
         self.update_dir.mkdir(exist_ok=True)
