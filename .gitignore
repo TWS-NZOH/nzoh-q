@@ -73,3 +73,24 @@ VERSION
 *.temp
 *.bak
 
+# Old simple_report_app launchers (not used in beta)
+Launch B2B Insights Report.bat
+Launch B2B Insights Report.command
+
+# Test files (not needed for beta)
+test_*.py
+tests/
+
+# Old/unused files from simple_report_app
+vue_dashboard.html
+Claudes summary.txt
+encrypted_credentials.txt
+
+# Empty/unused directories
+app/
+docker/
+frontend/
+
+# Duplicate static directory
+static/static/
+
