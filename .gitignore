@@ -5,6 +5,9 @@ credentials.enc
 *.pem
 *.p12
 
+# Documentation files
+*.md
+
 # Python
 __pycache__/
 *.py[cod]
