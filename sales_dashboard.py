@@ -335,9 +335,21 @@ def get_product_image_path(product_name: str) -> str:
 def create_sales_dashboard_html(account_name: str, dashboard_data: Dict[str, Any], account_id: str = "", generated_time: str = "", base_url: str = "", owner_email: str = "unknown@novozymes.com") -> str:
     """Create the HTML for the Vue.js sales dashboard"""
     import json
+    import sys
+    import os
     
     # Read the Vue.js template
-    template_path = Path(__file__).parent / "vue_dashboard.html"
+    # Handle PyInstaller path resolution
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Running from PyInstaller executable
+        template_path = Path(sys._MEIPASS) / "vue_dashboard.html"
+    else:
+        # Running from source
+        template_path = Path(__file__).parent / "vue_dashboard.html"
+    
+    if not template_path.exists():
+        raise FileNotFoundError(f"vue_dashboard.html not found at {template_path}")
+    
     with open(template_path, 'r', encoding='utf-8') as f:
         template = f.read()
     
