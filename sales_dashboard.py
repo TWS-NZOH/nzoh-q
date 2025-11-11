@@ -342,13 +342,36 @@ def create_sales_dashboard_html(account_name: str, dashboard_data: Dict[str, Any
     # Handle PyInstaller path resolution
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         # Running from PyInstaller executable
-        template_path = Path(sys._MEIPASS) / "vue_dashboard.html"
+        meipass = Path(sys._MEIPASS)
+        template_path = meipass / "vue_dashboard.html"
+        
+        # Debug: List files in _MEIPASS if file not found
+        if not template_path.exists():
+            try:
+                files_in_meipass = list(meipass.iterdir())
+                print(f"Debug: Files in _MEIPASS ({meipass}): {[f.name for f in files_in_meipass[:20]]}")
+            except:
+                pass
     else:
         # Running from source
         template_path = Path(__file__).parent / "vue_dashboard.html"
     
     if not template_path.exists():
-        raise FileNotFoundError(f"vue_dashboard.html not found at {template_path}")
+        # Try alternative locations
+        alternative_paths = [
+            Path(__file__).parent.parent / "vue_dashboard.html",  # One level up
+            Path.cwd() / "vue_dashboard.html",  # Current working directory
+        ]
+        
+        for alt_path in alternative_paths:
+            if alt_path.exists():
+                template_path = alt_path
+                break
+        else:
+            raise FileNotFoundError(
+                f"vue_dashboard.html not found at {template_path}\n"
+                f"Tried: {[str(template_path)] + [str(p) for p in alternative_paths]}"
+            )
     
     with open(template_path, 'r', encoding='utf-8') as f:
         template = f.read()
