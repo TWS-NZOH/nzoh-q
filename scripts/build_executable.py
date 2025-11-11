@@ -41,19 +41,27 @@ def build_executable():
     # Check if icon exists (Windows needs .ico, macOS/Linux can use .svg)
     import platform
     if platform.system() == 'Windows':
+        # Windows requires .ico format - PyInstaller cannot use SVG
         icon_path = app_dir / 'static' / 'images' / 'q-icon.ico'
+        print(f"Looking for icon at: {icon_path}")
         if not icon_path.exists():
-            # Fallback to .svg if .ico doesn't exist (PyInstaller will handle conversion)
-            icon_path = app_dir / 'static' / 'images' / 'q-icon.svg'
+            print("Warning: q-icon.ico not found. Executable will be built without icon.")
+            print(f"Checking directory contents: {list((app_dir / 'static' / 'images').iterdir()) if (app_dir / 'static' / 'images').exists() else 'Directory not found'}")
+            icon_path = None
+        else:
+            print(f"Found icon: {icon_path}")
     else:
+        # macOS/Linux can use .svg
         icon_path = app_dir / 'static' / 'images' / 'q-icon.svg'
+        if not icon_path.exists():
+            icon_path = None
     
     # Convert paths to forward slashes to avoid escape sequence issues on Windows
     def path_to_spec(path):
         """Convert Path object to string with forward slashes for spec file"""
         return str(path).replace('\\', '/')
     
-    icon_str = f"r'{path_to_spec(icon_path)}'" if icon_path.exists() else 'None'
+    icon_str = f"r'{path_to_spec(icon_path)}'" if icon_path and icon_path.exists() else 'None'
     
     # Create spec file for PyInstaller
     spec_content = f"""# -*- mode: python ; coding: utf-8 -*-

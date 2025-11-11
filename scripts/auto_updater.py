@@ -64,20 +64,79 @@ class AutoUpdater:
         """Get latest version from GitHub"""
         try:
             # Get latest commit from GitHub API
-            url = f"{self.github_api}/commits/{self.branch}"
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            data = response.json()
+            # Try multiple endpoint formats
+            urls_to_try = [
+                f"{self.github_api}/commits/{self.branch}",  # Standard format
+                f"{self.github_api}/commits/heads/{self.branch}",  # Alternative format
+                f"{self.github_api}/git/refs/heads/{self.branch}",  # Git refs format
+            ]
             
-            # Use commit SHA as version identifier
-            commit_sha = data['sha'][:7]
-            commit_date = data['commit']['committer']['date']
+            data = None
+            last_error = None
+            
+            for url in urls_to_try:
+                try:
+                    response = requests.get(url, timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        break
+                    elif response.status_code == 404:
+                        # Try next URL
+                        continue
+                    else:
+                        response.raise_for_status()
+                except requests.exceptions.RequestException as e:
+                    last_error = e
+                    continue
+            
+            if not data:
+                # If all URLs failed, try to get commit info from refs endpoint
+                try:
+                    ref_url = f"{self.github_api}/git/refs/heads/{self.branch}"
+                    ref_response = requests.get(ref_url, timeout=10)
+                    if ref_response.status_code == 200:
+                        ref_data = ref_response.json()
+                        commit_sha = ref_data['object']['sha']
+                        # Get commit details
+                        commit_url = f"{self.github_api}/git/commits/{commit_sha}"
+                        commit_response = requests.get(commit_url, timeout=10)
+                        if commit_response.status_code == 200:
+                            commit_data = commit_response.json()
+                            return {
+                                'version': commit_sha[:7],
+                                'date': commit_data['committer']['date'],
+                                'message': commit_data['message'],
+                                'url': f"https://github.com/{self.repo_owner}/{self.repo_name}/commit/{commit_sha}"
+                            }
+                except:
+                    pass
+                
+                # If we still don't have data, raise the last error
+                if last_error:
+                    raise last_error
+                else:
+                    raise Exception(f"Could not access GitHub API. Tried: {urls_to_try}")
+            
+            # Handle different response formats
+            if isinstance(data, list) and len(data) > 0:
+                # If response is a list, get the first commit
+                commit = data[0]
+                commit_sha = commit['sha'][:7]
+                commit_date = commit['commit']['committer']['date']
+                commit_message = commit['commit']['message']
+                commit_url = commit.get('html_url', f"https://github.com/{self.repo_owner}/{self.repo_name}/commit/{commit['sha']}")
+            else:
+                # Single commit object
+                commit_sha = data['sha'][:7]
+                commit_date = data['commit']['committer']['date']
+                commit_message = data['commit']['message']
+                commit_url = data.get('html_url', f"https://github.com/{self.repo_owner}/{self.repo_name}/commit/{data['sha']}")
             
             return {
                 'version': commit_sha,
                 'date': commit_date,
-                'message': data['commit']['message'],
-                'url': data['html_url']
+                'message': commit_message,
+                'url': commit_url
             }
         except Exception as e:
             print(f"Error checking for updates: {e}")
