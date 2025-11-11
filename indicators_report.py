@@ -2021,23 +2021,10 @@ def create_combined_analysis(account_id, start_date, end_date, resolution='3D', 
     print(f"\nCreated {len(buttons)} dropdown menu buttons")
 
     # After creating all analyses and before returning the figure
-    # Generate and save the opportunity report
+    # Generate the opportunity report (keep in memory - no disk I/O)
     report = analyze_product_opportunities(analyses, consolidated_product_data, analyses['Account Overview'])
     
-    # Save report to file
-    filename = f"{account_name.replace(' ', '_')}_opportunity_report_{datetime.now().strftime('%Y%m%d')}.txt"
-    
-    try:
-        with open(filename, 'w') as f:
-            f.write(report)
-        print(f"\nOpportunity report saved to: {filename}")
-    except Exception as e:
-        print(f"\nError saving report: {str(e)}")
-    
-    # Export HTML file for interactive visualization
-    html_filename = f"{account_name.replace(' ', '_')}_opportunity_chart_{datetime.now().strftime('%Y%m%d')}.html"
-    
-    # Create HTML content with both the chart and text report
+    # Create HTML content with both the chart and text report (keep in memory)
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -2072,21 +2059,16 @@ def create_combined_analysis(account_id, start_date, end_date, resolution='3D', 
     </html>
     """
     
-    # Write the HTML content to file
-    with open(html_filename, 'w') as f:
-        f.write(html_content)
-    print(f"Interactive report with text analysis saved to {html_filename}")
+    print(f"\nAnalysis completed. Report data kept in memory (RAM storage mode).")
     
-    # Still write text file for backward compatibility
-    txt_filename = f"{account_name.replace(' ', '_')}_opportunity_report_{datetime.now().strftime('%Y%m%d')}.txt"
-    try:
-        with open(txt_filename, 'w') as f:
-            f.write(report)
-        print(f"\nText opportunity report also saved to: {txt_filename}")
-    except Exception as e:
-        print(f"\nError saving text report: {str(e)}")
-    
-    return fig
+    # Return all data in memory instead of writing to disk
+    # This eliminates file I/O and path resolution issues in PyInstaller executables
+    return {
+        'figure': fig,
+        'html_content': html_content,
+        'text_report': report,
+        'account_name': account_name
+    }
 
 def is_fullscript_account(account_name):
     """Check if account is a FullScript account based on name prefix"""
@@ -4695,23 +4677,10 @@ def create_combined_analysis(account_id, start_date, end_date, resolution='3D', 
     print(f"\nCreated {len(buttons)} dropdown menu buttons")
 
     # After creating all analyses and before returning the figure
-    # Generate and save the opportunity report
+    # Generate the opportunity report (keep in memory - no disk I/O)
     report = analyze_product_opportunities(analyses, consolidated_product_data, analyses['Account Overview'])
     
-    # Save report to file
-    filename = f"{account_name.replace(' ', '_')}_opportunity_report_{datetime.now().strftime('%Y%m%d')}.txt"
-    
-    try:
-        with open(filename, 'w') as f:
-            f.write(report)
-        print(f"\nOpportunity report saved to: {filename}")
-    except Exception as e:
-        print(f"\nError saving report: {str(e)}")
-    
-    # Export HTML file for interactive visualization
-    html_filename = f"{account_name.replace(' ', '_')}_opportunity_chart_{datetime.now().strftime('%Y%m%d')}.html"
-    
-    # Create HTML content with both the chart and text report
+    # Create HTML content with both the chart and text report (keep in memory)
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -4746,21 +4715,16 @@ def create_combined_analysis(account_id, start_date, end_date, resolution='3D', 
     </html>
     """
     
-    # Write the HTML content to file
-    with open(html_filename, 'w') as f:
-        f.write(html_content)
-    print(f"Interactive report with text analysis saved to {html_filename}")
+    print(f"\nAnalysis completed. Report data kept in memory (RAM storage mode).")
     
-    # Still write text file for backward compatibility
-    txt_filename = f"{account_name.replace(' ', '_')}_opportunity_report_{datetime.now().strftime('%Y%m%d')}.txt"
-    try:
-        with open(txt_filename, 'w') as f:
-            f.write(report)
-        print(f"\nText opportunity report also saved to: {txt_filename}")
-    except Exception as e:
-        print(f"\nError saving text report: {str(e)}")
-    
-    return fig
+    # Return all data in memory instead of writing to disk
+    # This eliminates file I/O and path resolution issues in PyInstaller executables
+    return {
+        'figure': fig,
+        'html_content': html_content,
+        'text_report': report,
+        'account_name': account_name
+    }
 
 def is_fullscript_account(account_name):
     """Check if account is a FullScript account based on name prefix"""

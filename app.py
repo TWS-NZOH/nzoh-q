@@ -201,10 +201,10 @@ MAIN_TEMPLATE = """
             // If userInitials is already set (from system), use it
             // Otherwise get from input
             if (!userInitials) {
-                const initialsInput = document.getElementById('initialsInput');
-                userInitials = initialsInput.value.trim();
-                
-                if (!userInitials) return;
+            const initialsInput = document.getElementById('initialsInput');
+            userInitials = initialsInput.value.trim();
+            
+            if (!userInitials) return;
             }
             
             // Save initials to localStorage
@@ -812,7 +812,8 @@ def analyze_account():
         distributed_orders = indicators_report.distribute_monthly_orders(orders)
         
         # Create and run the combined analysis
-        fig = indicators_report.create_combined_analysis(
+        # Returns data in memory (no disk I/O) - eliminates path resolution issues in PyInstaller
+        analysis_result = indicators_report.create_combined_analysis(
             account_id,
             analysis_start,
             end_date,
@@ -822,43 +823,29 @@ def analyze_account():
             orders=distributed_orders
         )
         
-        # Find generated files
-        output_files = find_output_files(account_name)
+        # Extract data from memory (no file I/O needed)
+        if not isinstance(analysis_result, dict):
+            # Fallback: if function still returns just figure (backward compatibility)
+            return jsonify({
+                'success': False,
+                'error': 'Analysis completed but data format is incorrect. Please check the logs.'
+            }), 500
         
-        if not output_files:
-            return jsonify({'error': 'No output files found for this account', 'success': False}), 500
+        fig = analysis_result.get('figure')
+        html_content = analysis_result.get('html_content', '')
+        text_report = analysis_result.get('text_report', '')
+        result_account_name = analysis_result.get('account_name', account_name)
         
-        # Validate file recency (check if files are from today or recent)
-        text_file_valid = False
-        html_file_valid = False
-        
-        if 'text' in output_files:
-            text_file_valid = validate_file_recency(output_files['text'])
-            if not text_file_valid:
-                return jsonify({
-                    'error': f'Text report file is too old. Please generate a new report for {account_name}', 
-                    'success': False
-                }), 500
-        
-        if 'html' in output_files:
-            html_file_valid = validate_file_recency(output_files['html'])
-        
-        # Read the files
-        text_report = ""
-        html_report = ""
-        
-        if 'text' in output_files and text_file_valid:
-            with open(output_files['text'], 'r', encoding='utf-8') as f:
-                text_report = f.read()
-        
-        if 'html' in output_files and html_file_valid:
-            with open(output_files['html'], 'r', encoding='utf-8') as f:
-                html_report = f.read()
+        if not text_report:
+            return jsonify({
+                'success': False,
+                'error': 'Analysis completed but text report is empty'
+            }), 500
         
         # Import sales dashboard functions
         from sales_dashboard import parse_sales_dashboard_data, create_sales_dashboard_html
         
-        # Parse the text report for dashboard data
+        # Parse the text report for dashboard data (from memory, no file read)
         dashboard_data = parse_sales_dashboard_data(text_report)
         
         # Create the sales dashboard HTML
