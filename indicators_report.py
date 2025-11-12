@@ -376,24 +376,30 @@ def calculate_indicators(df, MA_length=20):
             # Match simple_report_app exactly: use std=2.0 parameter
             bbands = ta.bbands(df['close'], length=20, std=2.0)
             if bbands is not None and not bbands.empty:
-                # Debug: Check what columns we actually got
-                if 'BBU_20_2.0' not in bbands.columns:
-                    print(f"Debug: ta.bbands() returned columns: {list(bbands.columns)}")
-                    print(f"Debug: DataFrame shape: {bbands.shape}, type: {type(bbands)}")
-                    print(f"Debug: Looking for BBU_20_2.0, BBM_20_2.0, BBL_20_2.0")
-                    # Try to find columns with similar names
+                # pandas_ta 0.3.14b0 returns columns with _2.0_2.0 suffix when std=2.0 is used
+                # Try the expected column names first, then fall back to actual returned names
+                if 'BBU_20_2.0' in bbands.columns:
+                    # Standard column names (simple_report_app format)
+                    df['bb_upper'] = bbands['BBU_20_2.0']
+                    df['bb_middle'] = bbands['BBM_20_2.0']
+                    df['bb_lower'] = bbands['BBL_20_2.0']
+                elif 'BBU_20_2.0_2.0' in bbands.columns:
+                    # Actual column names returned by pandas_ta 0.3.14b0 in PyInstaller environment
+                    df['bb_upper'] = bbands['BBU_20_2.0_2.0']
+                    df['bb_middle'] = bbands['BBM_20_2.0_2.0']
+                    df['bb_lower'] = bbands['BBL_20_2.0_2.0']
+                else:
+                    # Fallback: try to find columns dynamically
                     upper_cols = [c for c in bbands.columns if 'BBU' in str(c) or 'upper' in str(c).lower()]
                     middle_cols = [c for c in bbands.columns if 'BBM' in str(c) or 'middle' in str(c).lower()]
                     lower_cols = [c for c in bbands.columns if 'BBL' in str(c) or 'lower' in str(c).lower()]
-                    print(f"Debug: Found upper-like columns: {upper_cols}")
-                    print(f"Debug: Found middle-like columns: {middle_cols}")
-                    print(f"Debug: Found lower-like columns: {lower_cols}")
-                    raise KeyError(f"BBU_20_2.0 column not found. Available columns: {list(bbands.columns)}")
-                
-                # Match simple_report_app exactly: access columns directly
-                df['bb_upper'] = bbands['BBU_20_2.0']
-                df['bb_middle'] = bbands['BBM_20_2.0']
-                df['bb_lower'] = bbands['BBL_20_2.0']
+                    
+                    if upper_cols and middle_cols and lower_cols:
+                        df['bb_upper'] = bbands[upper_cols[0]]
+                        df['bb_middle'] = bbands[middle_cols[0]]
+                        df['bb_lower'] = bbands[lower_cols[0]]
+                    else:
+                        raise KeyError(f"Could not find Bollinger Bands columns. Available: {list(bbands.columns)}")
                 
                 # Calculate decay simulation here while we have the BB data
                 latest_close = df['close'].iloc[-1]
@@ -3096,24 +3102,30 @@ def calculate_indicators(df, MA_length=20):
             # Match simple_report_app exactly: use std=2.0 parameter
             bbands = ta.bbands(df['close'], length=20, std=2.0)
             if bbands is not None and not bbands.empty:
-                # Debug: Check what columns we actually got
-                if 'BBU_20_2.0' not in bbands.columns:
-                    print(f"Debug: ta.bbands() returned columns: {list(bbands.columns)}")
-                    print(f"Debug: DataFrame shape: {bbands.shape}, type: {type(bbands)}")
-                    print(f"Debug: Looking for BBU_20_2.0, BBM_20_2.0, BBL_20_2.0")
-                    # Try to find columns with similar names
+                # pandas_ta 0.3.14b0 returns columns with _2.0_2.0 suffix when std=2.0 is used
+                # Try the expected column names first, then fall back to actual returned names
+                if 'BBU_20_2.0' in bbands.columns:
+                    # Standard column names (simple_report_app format)
+                    df['bb_upper'] = bbands['BBU_20_2.0']
+                    df['bb_middle'] = bbands['BBM_20_2.0']
+                    df['bb_lower'] = bbands['BBL_20_2.0']
+                elif 'BBU_20_2.0_2.0' in bbands.columns:
+                    # Actual column names returned by pandas_ta 0.3.14b0 in PyInstaller environment
+                    df['bb_upper'] = bbands['BBU_20_2.0_2.0']
+                    df['bb_middle'] = bbands['BBM_20_2.0_2.0']
+                    df['bb_lower'] = bbands['BBL_20_2.0_2.0']
+                else:
+                    # Fallback: try to find columns dynamically
                     upper_cols = [c for c in bbands.columns if 'BBU' in str(c) or 'upper' in str(c).lower()]
                     middle_cols = [c for c in bbands.columns if 'BBM' in str(c) or 'middle' in str(c).lower()]
                     lower_cols = [c for c in bbands.columns if 'BBL' in str(c) or 'lower' in str(c).lower()]
-                    print(f"Debug: Found upper-like columns: {upper_cols}")
-                    print(f"Debug: Found middle-like columns: {middle_cols}")
-                    print(f"Debug: Found lower-like columns: {lower_cols}")
-                    raise KeyError(f"BBU_20_2.0 column not found. Available columns: {list(bbands.columns)}")
-                
-                # Match simple_report_app exactly: access columns directly
-                df['bb_upper'] = bbands['BBU_20_2.0']
-                df['bb_middle'] = bbands['BBM_20_2.0']
-                df['bb_lower'] = bbands['BBL_20_2.0']
+                    
+                    if upper_cols and middle_cols and lower_cols:
+                        df['bb_upper'] = bbands[upper_cols[0]]
+                        df['bb_middle'] = bbands[middle_cols[0]]
+                        df['bb_lower'] = bbands[lower_cols[0]]
+                    else:
+                        raise KeyError(f"Could not find Bollinger Bands columns. Available: {list(bbands.columns)}")
                 
                 # Calculate decay simulation here while we have the BB data
                 latest_close = df['close'].iloc[-1]
