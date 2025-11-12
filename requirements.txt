@@ -1,7 +1,7 @@
 Flask>=2.3.0
 Flask-CORS>=4.0.0
 pandas>=2.0.0
-pandas-ta>=0.3.14b0
+pandas-ta==0.3.14b0
 simple-salesforce>=1.12.0
 plotly>=5.15.0
 numpy>=1.21.0

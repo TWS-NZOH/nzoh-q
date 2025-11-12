@@ -373,8 +373,10 @@ def calculate_indicators(df, MA_length=20):
     # Bollinger Bands - require at least 20 points
     if len(df) >= 20:
         try:
+            # Match simple_report_app exactly: use std=2.0 parameter
             bbands = ta.bbands(df['close'], length=20, std=2.0)
             if bbands is not None:
+                # Match simple_report_app exactly: access columns directly
                 df['bb_upper'] = bbands['BBU_20_2.0']
                 df['bb_middle'] = bbands['BBM_20_2.0']
                 df['bb_lower'] = bbands['BBL_20_2.0']
@@ -2242,7 +2244,10 @@ def analyze_product_opportunities(analyses, consolidated_product_data, account_a
         
         # Check for required indicators
         required_cols = ['rsi', 'close', 'bb_lower', 'bb_middle', 'bb_upper', 'volume', 'unit_price']
-        if not all(col in df.columns for col in required_cols):
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            print(f"  Skipping {product}: Missing required columns: {missing_cols}")
+            print(f"    Available columns: {list(df.columns)}")
             continue
             
         try:
@@ -3068,8 +3073,10 @@ def calculate_indicators(df, MA_length=20):
     # Bollinger Bands - require at least 20 points
     if len(df) >= 20:
         try:
+            # Match simple_report_app exactly: use std=2.0 parameter
             bbands = ta.bbands(df['close'], length=20, std=2.0)
             if bbands is not None:
+                # Match simple_report_app exactly: access columns directly
                 df['bb_upper'] = bbands['BBU_20_2.0']
                 df['bb_middle'] = bbands['BBM_20_2.0']
                 df['bb_lower'] = bbands['BBL_20_2.0']
@@ -4933,7 +4940,10 @@ def analyze_product_opportunities(analyses, consolidated_product_data, account_a
         
         # Check for required indicators
         required_cols = ['rsi', 'close', 'bb_lower', 'bb_middle', 'bb_upper', 'volume', 'unit_price']
-        if not all(col in df.columns for col in required_cols):
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            print(f"  Skipping {product}: Missing required columns: {missing_cols}")
+            print(f"    Available columns: {list(df.columns)}")
             continue
             
         try:
