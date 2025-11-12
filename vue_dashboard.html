@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Dashboard - ACCOUNT_NAME_PLACEHOLDER</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        
+        .dashboard { display: flex; height: 100vh; }
+        
+        /* Left Panel - Dark Blue */
+        .left-panel { 
+            width: 40%; 
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            color: white;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .top-section {
+            display: flex;
+            align-items: stretch;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .q-icon-logo {
+            flex-shrink: 0;
+            width: 160px;
+            height: 160px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        
+        .q-icon-logo:hover {
+            transform: scale(1.05);
+        }
+        
+        .q-icon-logo:active {
+            transform: scale(0.98);
+        }
+        
+        .q-icon-logo svg {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .account-info-block {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .account-header { margin-bottom: 0.5rem; user-select: none; }
+        .account-name { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.15rem; }
+        .account-email { font-size: 0.8rem; font-weight: 100; opacity: 0.7; margin-bottom: 0; }
+        
+        .account-status { }
+        .inventory-header { 
+            display: flex; 
+            align-items: baseline; 
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .date-range { font-size: 0.75rem; opacity: 0.7; margin: 0; }
+        
+        .account-description {
+            font-size: 0.9rem;
+            line-height: 1.7;
+            opacity: 0.95;
+            font-weight: 600;
+            font-style: italic;
+            margin-bottom: 2rem;
+        }
+        .status-gauge { margin-bottom: 0.5rem; }
+        .gauge-value { font-size: 1.1rem; font-weight: 600; margin-bottom: 0; }
+        .gauge-bar { 
+            width: 100%; 
+            height: 18px; 
+            background: transparent;
+            border: 2px solid white;
+            border-radius: 10px; 
+            position: relative; 
+            margin-bottom: 1rem;
+            overflow: visible;
+        }
+        .gauge-fill { 
+            height: 100%; 
+            background: linear-gradient(to right, 
+                rgba(94, 194, 105, 0) 0%, 
+                rgba(94, 194, 105, 0.3) 30%, 
+                rgba(94, 194, 105, 1) 60%, 
+                rgba(94, 194, 105, 0.3) 90%, 
+                rgba(94, 194, 105, 0) 100%); 
+            border-radius: 8px; 
+            width: 100%; 
+            position: relative;
+        }
+        .gauge-arrow {
+            position: absolute;
+            bottom: -10px;
+            left: var(--gauge-value, 50%);
+            transform: translateX(-50%);
+            width: 20px;
+            height: 20px;
+            z-index: 10;
+        }
+        .gauge-arrow svg {
+            width: 100%;
+            height: 100%;
+        }
+        .status-text { font-size: 0.85rem; opacity: 0.9; font-style: italic; margin-top: 0.25rem; }
+        
+        .budgets-section { margin-top: auto; }
+        .budgets-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+        .budget-item { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+        .budget-label { opacity: 0.9; }
+        .budget-value { font-weight: 600; }
+        
+        /* Right Panel - White */
+        .right-panel { 
+            width: 60%; 
+            background: white;
+            padding: 2rem;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .section-title { 
+            font-size: 1.2rem; 
+            color: #6b7280; 
+            margin-bottom: 1.5rem; 
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        .dropdown-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .dropdown-button {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 200px;
+            justify-content: space-between;
+        }
+        
+        .dropdown-button:hover {
+            background: #f1f5f9;
+        }
+        
+        .dropdown-arrow {
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid #6b7280;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .dropdown-menu.show {
+            display: block;
+        }
+        
+        .dropdown-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            color: #374151;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+        
+        .dropdown-item:hover {
+            background: #f8fafc;
+        }
+        
+        .dropdown-item.active {
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-weight: 500;
+        }
+        
+        .product-section { 
+            margin-bottom: 2rem; 
+            border-radius: 8px; 
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .top-performers { background: #f0fdf4; border: 1px solid #bbf7d0; }
+        .low-stock { background: #fef2f2; border: 1px solid #fecaca; }
+        
+        .section-label { 
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #22c55e;
+            z-index: 1;
+        }
+        
+        .low-stock .section-label { background: #f87171; }
+        
+        .section-header { 
+            padding: 1rem 1.5rem 0.5rem 1.5rem;
+            font-weight: 600;
+            color: #374151;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+        
+        .top-performers .section-header { 
+            color: #22c55e; 
+            background: rgba(34, 197, 94, 0.1);
+        }
+        
+        .low-stock .section-header { 
+            color: #f87171; 
+            background: rgba(248, 113, 113, 0.1);
+        }
+        
+        .product-item { 
+            display: flex; 
+            align-items: flex-start; 
+            padding: 0.75rem 1.5rem 2.5rem 2rem;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .product-item:last-child { border-bottom: none; }
+        
+        .product-info { flex: 1; }
+        .product-name { font-weight: 600; color: #374151; margin-bottom: 0.25rem; }
+        .product-rank { font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem; }
+        
+        .product-gauge { 
+            height: 6px; 
+            background: rgba(0,0,0,0.1); 
+            border-radius: 3px; 
+            margin: 0.5rem 0 1rem 0;
+            position: relative;
+            overflow: visible;
+        }
+        
+        .product-gauge-fill { 
+            height: 100%; 
+            border-radius: 3px;
+            background: var(--product-gauge-color, #5ec269);
+        }
+        
+        .product-gauge-arrow {
+            position: absolute;
+            bottom: -8px;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 10px solid #374151;
+            z-index: 10;
+        }
+        
+        .product-gauge-arrow.low {
+            border-bottom-color: #1f2937;
+        }
+        
+        .product-gauge-arrow.medium {
+            border-bottom-color: #6b7280;
+        }
+        
+        .product-gauge-arrow.high {
+            border-bottom-color: #9ca3af;
+        }
+        
+        .product-recommendations { 
+            display: flex; 
+            justify-content: space-between;
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        
+        .recommendation { 
+            font-size: 0.8rem; 
+            color: #6b7280;
+            text-align: center;
+            position: absolute;
+            top: 0;
+        }
+        
+        .recommendation.low {
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .recommendation.medium {
+            left: 70%;
+            transform: translateX(-50%);
+        }
+        
+        .recommendation.high {
+            left: 100%;
+            transform: translateX(-50%);
+        }
+        
+        .recommendation strong { color: #374151; }
+        
+        .delivery-date {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            position: absolute;
+            top: 0;
+            left: 0;
+            text-align: left;
+        }
+        
+        .footer { 
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            color: #9ca3af;
+            font-size: 0.85rem;
+        }
+        
+        .products-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Left Panel -->
+        <div class="left-panel">
+            <!-- Top Section: Q Icon + Account Info/Health Bar -->
+            <div class="top-section">
+                <!-- Q Icon Logo - Back Button -->
+                <div class="q-icon-logo" onclick="goBackToLanding(event)" title="Generate another report">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 109 116" style="width: 100%; height: 100%;">
+                        <path fill="white" d="M109,54.5C109,24.45,84.55,0,54.5,0S0,24.45,0,54.5s24.45,54.5,54.5,54.5c5.8,0,11.4-.92,16.65-2.61l6.85,9.61-1.26-11.76c18.99-8.53,32.26-27.61,32.26-49.74ZM75.53,92.89l-1.06-9.93c-.47-4.37-4.01-7.95-8.41-8.05-1.17-.03-2.36.17-3.52.63h0c-1.39.55-2.56,1.4-3.48,2.45-2.68,3.08-2.69,7.68-.32,11l5.58,7.82c-2.37.44-4.81.69-7.32.69h0c-21.82,0-39.5-17.68-39.5-39.5h0c0-21.82,17.68-39.5,39.5-39.5h0c21.82,0,39.5,17.68,39.5,39.5h0c0,15.12-8.5,28.25-20.97,34.89Z"/>
+                    </svg>
+                </div>
+                
+                <!-- Account Info Block -->
+                <div class="account-info-block">
+                    <div class="account-header">
+                        <div class="account-name">ACCOUNT_NAME_PLACEHOLDER</div>
+                        <div class="account-email">OWNER_EMAIL_PLACEHOLDER</div>
+                    </div>
+                    
+                    <div class="account-status">
+                        <div class="status-gauge">
+                            <div class="inventory-header">
+                                <div class="gauge-value">Inventory assessment</div>
+                                <div class="date-range">DATE_RANGE_PLACEHOLDER</div>
+                            </div>
+                            <div class="gauge-bar">
+                                <div class="gauge-fill"></div>
+                                <div class="gauge-arrow">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 13.7 34" style="width: 100%; height: 100%;">
+                                        <path fill="white" d="M11.67,16.26l1.83-7.62c.8-3.36-.88-6.93-4.1-8.17C8.54.14,7.61-.03,6.63,0h0c-1.17.04-2.26.36-3.22.9C.62,2.47-.6,5.87.28,8.95l2.07,7.26,2.53,8.88,2.54,8.91,2.16-9.03"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="status-text">ACCOUNT_GAUGE_STATUS_PLACEHOLDER</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Account Description Text -->
+            <div class="account-description">
+                ACCOUNT_DESCRIPTION_PLACEHOLDER
+            </div>
+            
+            <div class="budgets-section">
+                <div class="budgets-title">90 DAY PROJECTIONS</div>
+                <div class="budget-item">
+                    <span class="budget-label">Low:</span>
+                    <span class="budget-value">$BALANCED_SPEND_PLACEHOLDER</span>
+                </div>
+                <div class="budget-item">
+                    <span class="budget-label">High:</span>
+                    <span class="budget-value">$TRENDING_SPEND_PLACEHOLDER</span>
+                </div>
+                <div class="budget-item" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <span class="budget-label">Trailing 90-Day Spend:</span>
+                    <span class="budget-value">$AVG_SPEND_PLACEHOLDER</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Panel -->
+        <div class="right-panel">
+            <div class="dropdown-container">
+                <div class="dropdown">
+                    <div class="dropdown-button" onclick="toggleDropdown()">
+                        <span id="dropdown-text">Order recommendations</span>
+                        <div class="dropdown-arrow"></div>
+                    </div>
+                    <div class="dropdown-menu" id="dropdown-menu">
+                        <div class="dropdown-item active" onclick="selectOption('overview')">Overview</div>
+                        <div class="dropdown-item" onclick="selectOption('low-stock')">Low stock</div>
+                        <div class="dropdown-item" onclick="selectOption('overstock')">Overstock</div>
+                        <div class="dropdown-item" onclick="selectOption('top-performers')">Top performers</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Product Content Area -->
+            <div id="product-content">
+                <!-- Products will be inserted here by JavaScript -->
+            </div>
+            
+            <div class="footer"></div>
+        </div>
+    </div>
+
+    <script>
+        // Function to navigate back to landing page
+        function goBackToLanding(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            // Try multiple methods to navigate the parent window
+            try {
+                // Method 1: Try parent window
+                if (window.parent && window.parent !== window) {
+                    window.parent.location.href = '/';
+                    return;
+                }
+            } catch (e) {
+                console.log('Parent navigation blocked:', e);
+            }
+            
+            try {
+                // Method 2: Try top window
+                if (window.top && window.top !== window) {
+                    window.top.location.href = '/';
+                    return;
+                }
+            } catch (e) {
+                console.log('Top navigation blocked:', e);
+            }
+            
+            try {
+                // Method 3: Use postMessage to communicate with parent
+                window.parent.postMessage({ action: 'navigate', url: '/' }, '*');
+            } catch (e) {
+                console.log('PostMessage failed:', e);
+            }
+            
+            // Fallback: navigate current window
+            window.location.href = '/';
+        }
+        
+        // Parse the products data
+        const products = PRODUCTS_PLACEHOLDER;
+        const orderTimeline = ORDER_TIMELINE_PLACEHOLDER;
+        let currentView = 'overview';
+        let allProducts = [];
+        
+        // Create a comprehensive product list with all data
+        function createProductList() {
+            const productMap = new Map();
+            
+            // Process order timeline to get all product data
+            orderTimeline.forEach(week => {
+                week.products.forEach(product => {
+                    if (!productMap.has(product.name)) {
+                        productMap.set(product.name, {
+                            name: product.name,
+                            priority: product.priority,
+                            nextOrder: product.nextOrder,
+                            positionBar: product.positionBar,
+                            conservative: product.conservative,
+                            balanced: product.balanced,
+                            aggressive: product.aggressive,
+                            conservativeValue: product.conservativeValue,
+                            balancedValue: product.balancedValue,
+                            aggressiveValue: product.aggressiveValue,
+                            gaugeValue: calculateGaugeFromPositionBar(product.positionBar)
+                        });
+                    }
+                });
+            });
+            
+            return Array.from(productMap.values());
+        }
+        
+        function calculateGaugeFromPositionBar(positionBar) {
+            if (!positionBar) return 50;
+            const totalChars = positionBar.length;
+            const xPosition = positionBar.indexOf('x');
+            if (xPosition === -1) return 50;
+            return Math.round((xPosition / totalChars) * 100);
+        }
+        
+        function calculateMediumArrowPosition(product) {
+            // Calculate where the medium arrow should be positioned
+            // This represents 70% of the Bollinger Band range
+            return 70;
+        }
+        
+        function calculateHighArrowPosition(product) {
+            // Calculate where the high arrow should be positioned
+            // This represents the upper Bollinger Band (100%)
+            return 100;
+        }
+        
+        function getGaugeColor(gaugeValue) {
+            if (gaugeValue >= 0 && gaugeValue < 25) {
+                return '#e77975'; // Red for very low stock
+            } else if (gaugeValue >= 25 && gaugeValue < 50) {
+                return '#e5d576'; // Yellow for low stock
+            } else if (gaugeValue >= 50 && gaugeValue <= 70) {
+                return '#5ec269'; // Green for meeting demand
+            } else if (gaugeValue > 70 && gaugeValue <= 100) {
+                return '#5f4494'; // Purple for overstock
+            } else {
+                return '#5ec269'; // Default green
+            }
+        }
+        
+        // Create product HTML with arrows on gauge
+        function createProductHTML(product) {
+            const rank = product.priority;
+            let rankText = `#${rank} seller`;
+            
+            // Format delivery date
+            let deliveryDate = '';
+            if (product.nextOrder) {
+                const dateStr = product.nextOrder.replace(/\./g, '-');
+                const date = new Date(dateStr);
+                if (!isNaN(date.getTime())) {
+                    deliveryDate = `by ${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate()}`;
+                }
+            }
+            
+            // Calculate arrow positions
+            const lowArrowPosition = 50; // Always at 50%
+            const mediumArrowPosition = calculateMediumArrowPosition(product); // At 70%
+            const highArrowPosition = calculateHighArrowPosition(product); // At 100%
+            
+            // Create recommendations with three options
+            let lowRecommendation = '';
+            let mediumRecommendation = '';
+            let highRecommendation = '';
+            
+            if (product.balanced > 0 && product.balancedValue > 0) {
+                // Calculate unit price from balanced data
+                const unitPrice = product.balancedValue / product.balanced;
+                const totalCost = product.balanced * unitPrice;
+                lowRecommendation = `<div class="recommendation low">${product.balanced} units<br>($${totalCost.toFixed(2)})</div>`;
+            }
+            if (product.aggressive > 0 && product.aggressiveValue > 0) {
+                // Calculate unit price from aggressive data
+                const unitPrice = product.aggressiveValue / product.aggressive;
+                
+                // Calculate 70% target: balanced + 0.4 * (aggressive - balanced)
+                const mediumQuantity = Math.round(product.balanced + 0.4 * (product.aggressive - product.balanced));
+                const mediumCost = mediumQuantity * unitPrice;
+                const highCost = product.aggressive * unitPrice;
+                
+                mediumRecommendation = `<div class="recommendation medium">${mediumQuantity} units<br>($${mediumCost.toFixed(2)})</div>`;
+                highRecommendation = `<div class="recommendation high">${product.aggressive} units<br>($${highCost.toFixed(2)})</div>`;
+            }
+            
+            const gaugeColor = getGaugeColor(product.gaugeValue);
+            
+            return `
+                <div class="product-item">
+                    <div class="product-info">
+                        <div class="product-name">${product.name.toUpperCase()}</div>
+                        <div class="product-rank">${rankText}</div>
+                        <div class="product-gauge">
+                            <div class="product-gauge-fill" style="width: ${product.gaugeValue}%; background: ${gaugeColor};"></div>
+                            <div class="product-gauge-arrow low" style="left: ${lowArrowPosition}%;"></div>
+                            <div class="product-gauge-arrow medium" style="left: ${mediumArrowPosition}%;"></div>
+                            <div class="product-gauge-arrow high" style="left: ${highArrowPosition}%;"></div>
+                        </div>
+                        <div class="product-recommendations">
+                            ${lowRecommendation}
+                            ${mediumRecommendation}
+                            ${highRecommendation}
+                            ${deliveryDate ? `<div class="delivery-date">${deliveryDate}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Filter products based on current view
+        function getFilteredProducts() {
+            switch (currentView) {
+                case 'overview':
+                    // Sort by inventory lowness (lowest gauge value first)
+                    return allProducts
+                        .filter(p => p.conservative > 0 || p.balanced > 0 || p.aggressive > 0)
+                        .sort((a, b) => a.gaugeValue - b.gaugeValue);
+                
+                case 'low-stock':
+                    // Products with gauge value under 50, sorted by inventory lowness
+                    return allProducts
+                        .filter(p => p.gaugeValue < 50 && (p.conservative > 0 || p.balanced > 0 || p.aggressive > 0))
+                        .sort((a, b) => a.gaugeValue - b.gaugeValue);
+                
+                case 'overstock':
+                    // Products with gauge value over 70, sorted by highest inventory (most overstocked first)
+                    return allProducts
+                        .filter(p => p.gaugeValue > 70 && (p.conservative > 0 || p.balanced > 0 || p.aggressive > 0))
+                        .sort((a, b) => b.gaugeValue - a.gaugeValue);
+                
+                case 'top-performers':
+                    // Top 5 products by priority
+                    return allProducts
+                        .filter(p => p.priority <= 5 && (p.conservative > 0 || p.balanced > 0 || p.aggressive > 0))
+                        .sort((a, b) => a.priority - b.priority)
+                        .slice(0, 5);
+                
+                default:
+                    return [];
+            }
+        }
+        
+        // Update the product display
+        function updateProductDisplay() {
+            const filteredProducts = getFilteredProducts();
+            const content = document.getElementById('product-content');
+            
+            if (filteredProducts.length === 0) {
+                content.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 2rem;">No products found for this view.</div>';
+                return;
+            }
+            
+            content.innerHTML = filteredProducts.map(p => createProductHTML(p)).join('');
+        }
+        
+        // Dropdown functionality
+        function toggleDropdown() {
+            const menu = document.getElementById('dropdown-menu');
+            menu.classList.toggle('show');
+        }
+        
+        function selectOption(option) {
+            currentView = option;
+            
+            // Update dropdown text
+            const dropdownText = document.getElementById('dropdown-text');
+            const menu = document.getElementById('dropdown-menu');
+            
+            switch (option) {
+                case 'overview':
+                    dropdownText.textContent = 'Overview';
+                    break;
+                case 'low-stock':
+                    dropdownText.textContent = 'Low stock';
+                    break;
+                case 'overstock':
+                    dropdownText.textContent = 'Overstock';
+                    break;
+                case 'top-performers':
+                    dropdownText.textContent = 'Top performers';
+                    break;
+            }
+            
+            // Update active item
+            document.querySelectorAll('.dropdown-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Hide dropdown
+            menu.classList.remove('show');
+            
+            // Update display
+            updateProductDisplay();
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.querySelector('.dropdown');
+            if (!dropdown.contains(event.target)) {
+                document.getElementById('dropdown-menu').classList.remove('show');
+            }
+        });
+        
+        // Initialize dashboard
+        function initializeDashboard() {
+            allProducts = createProductList();
+            
+            // Set the account gauge value CSS variable (no adaptive coloring for account gauge)
+            const accountGaugeValue = ACCOUNT_GAUGE_VALUE_PLACEHOLDER;
+            console.log('Account Gauge Value:', accountGaugeValue);
+            document.documentElement.style.setProperty('--gauge-value', accountGaugeValue + '%');
+            
+            // Initialize with overview view
+            updateProductDisplay();
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializeDashboard);
+    </script>
+</body>
+</html>
