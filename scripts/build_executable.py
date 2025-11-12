@@ -80,6 +80,7 @@ a = Analysis(
         (r'{path_to_spec(app_dir / "app.py")}', '.'),
         (r'{path_to_spec(app_dir / "indicators_report.py")}', '.'),
         (r'{path_to_spec(app_dir / "sales_dashboard.py")}', '.'),
+        (r'{path_to_spec(app_dir / "vue_dashboard.html")}', '.'),
     ],
     hiddenimports=[
         'flask',

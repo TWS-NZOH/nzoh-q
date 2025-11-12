@@ -1024,6 +1024,17 @@ def format_opportunity_report(opportunities, account_analysis=None):
             
             # Calculate total recommended values for this week
             for opp in week_products:
+                # Debug: Check for missing Bollinger Bands data
+                if 'bb_upper' not in opp or 'bb_lower' not in opp or 'bb_middle' not in opp:
+                    print(f"Debug: Missing BB data in week calculation for {opp.get('product', 'unknown')}")
+                    print(f"  Available keys: {list(opp.keys())}")
+                    print(f"  Has bb_upper: {'bb_upper' in opp}")
+                    print(f"  Has bb_lower: {'bb_lower' in opp}")
+                    print(f"  Has bb_middle: {'bb_middle' in opp}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
+                
                 # Target the correct percentile levels:
                 # Conservative = 50th percentile (bb_middle)
                 # Balanced = 70th percentile (between middle and upper)
@@ -1049,6 +1060,19 @@ def format_opportunity_report(opportunities, account_analysis=None):
             # Process all products for this week
             for j, opp in enumerate(products):
                 try:
+                    # Debug: Check for missing Bollinger Bands data before processing
+                    if 'bb_upper' not in opp or 'bb_lower' not in opp or 'bb_middle' not in opp:
+                        print(f"Debug: Missing BB data in product formatting for {opp.get('product', 'unknown')}")
+                        print(f"  Available keys: {list(opp.keys())}")
+                        print(f"  Has bb_upper: {'bb_upper' in opp}")
+                        print(f"  Has bb_lower: {'bb_lower' in opp}")
+                        print(f"  Has bb_middle: {'bb_middle' in opp}")
+                        print(f"  Full opportunity dict: {opp}")
+                        import traceback
+                        traceback.print_exc()
+                        report.append(f"\nError: Missing Bollinger Bands data for {opp.get('product', 'unknown')}\n")
+                        continue
+                    
                     spectrum = create_bb_spectrum(opp['position_in_band'])
                     next_order = datetime.now() + timedelta(days=opp['order_interval'])
                     
@@ -1122,6 +1146,17 @@ def format_opportunity_report(opportunities, account_analysis=None):
         
     except Exception as e:
         print(f"Debug: Critical error in report formatting: {str(e)}")
+        import traceback
+        print(f"Traceback:")
+        traceback.print_exc()
+        
+        # Additional debugging info
+        if 'opportunities' in locals():
+            print(f"Number of opportunities: {len(opportunities)}")
+            if opportunities:
+                print(f"First opportunity keys: {list(opportunities[0].keys())}")
+                print(f"First opportunity sample: {opportunities[0]}")
+        
         return "Error generating report. Please check the logs."
 
 def create_combined_analysis(account_id, start_date, end_date, resolution='3D', ma_window=90, warmup_days=None, orders=None):
@@ -3680,6 +3715,17 @@ def format_opportunity_report(opportunities, account_analysis=None):
             
             # Calculate total recommended values for this week
             for opp in week_products:
+                # Debug: Check for missing Bollinger Bands data
+                if 'bb_upper' not in opp or 'bb_lower' not in opp or 'bb_middle' not in opp:
+                    print(f"Debug: Missing BB data in week calculation for {opp.get('product', 'unknown')}")
+                    print(f"  Available keys: {list(opp.keys())}")
+                    print(f"  Has bb_upper: {'bb_upper' in opp}")
+                    print(f"  Has bb_lower: {'bb_lower' in opp}")
+                    print(f"  Has bb_middle: {'bb_middle' in opp}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
+                
                 # Target the correct percentile levels:
                 # Conservative = 50th percentile (bb_middle)
                 # Balanced = 70th percentile (between middle and upper)
@@ -3705,6 +3751,19 @@ def format_opportunity_report(opportunities, account_analysis=None):
             # Process all products for this week
             for j, opp in enumerate(products):
                 try:
+                    # Debug: Check for missing Bollinger Bands data before processing
+                    if 'bb_upper' not in opp or 'bb_lower' not in opp or 'bb_middle' not in opp:
+                        print(f"Debug: Missing BB data in product formatting for {opp.get('product', 'unknown')}")
+                        print(f"  Available keys: {list(opp.keys())}")
+                        print(f"  Has bb_upper: {'bb_upper' in opp}")
+                        print(f"  Has bb_lower: {'bb_lower' in opp}")
+                        print(f"  Has bb_middle: {'bb_middle' in opp}")
+                        print(f"  Full opportunity dict: {opp}")
+                        import traceback
+                        traceback.print_exc()
+                        report.append(f"\nError: Missing Bollinger Bands data for {opp.get('product', 'unknown')}\n")
+                        continue
+                    
                     spectrum = create_bb_spectrum(opp['position_in_band'])
                     next_order = datetime.now() + timedelta(days=opp['order_interval'])
                     
@@ -3778,6 +3837,17 @@ def format_opportunity_report(opportunities, account_analysis=None):
         
     except Exception as e:
         print(f"Debug: Critical error in report formatting: {str(e)}")
+        import traceback
+        print(f"Traceback:")
+        traceback.print_exc()
+        
+        # Additional debugging info
+        if 'opportunities' in locals():
+            print(f"Number of opportunities: {len(opportunities)}")
+            if opportunities:
+                print(f"First opportunity keys: {list(opportunities[0].keys())}")
+                print(f"First opportunity sample: {opportunities[0]}")
+        
         return "Error generating report. Please check the logs."
 
 def create_combined_analysis(account_id, start_date, end_date, resolution='3D', ma_window=90, warmup_days=None, orders=None):
