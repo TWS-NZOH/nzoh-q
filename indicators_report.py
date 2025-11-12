@@ -375,7 +375,21 @@ def calculate_indicators(df, MA_length=20):
         try:
             # Match simple_report_app exactly: use std=2.0 parameter
             bbands = ta.bbands(df['close'], length=20, std=2.0)
-            if bbands is not None:
+            if bbands is not None and not bbands.empty:
+                # Debug: Check what columns we actually got
+                if 'BBU_20_2.0' not in bbands.columns:
+                    print(f"Debug: ta.bbands() returned columns: {list(bbands.columns)}")
+                    print(f"Debug: DataFrame shape: {bbands.shape}, type: {type(bbands)}")
+                    print(f"Debug: Looking for BBU_20_2.0, BBM_20_2.0, BBL_20_2.0")
+                    # Try to find columns with similar names
+                    upper_cols = [c for c in bbands.columns if 'BBU' in str(c) or 'upper' in str(c).lower()]
+                    middle_cols = [c for c in bbands.columns if 'BBM' in str(c) or 'middle' in str(c).lower()]
+                    lower_cols = [c for c in bbands.columns if 'BBL' in str(c) or 'lower' in str(c).lower()]
+                    print(f"Debug: Found upper-like columns: {upper_cols}")
+                    print(f"Debug: Found middle-like columns: {middle_cols}")
+                    print(f"Debug: Found lower-like columns: {lower_cols}")
+                    raise KeyError(f"BBU_20_2.0 column not found. Available columns: {list(bbands.columns)}")
+                
                 # Match simple_report_app exactly: access columns directly
                 df['bb_upper'] = bbands['BBU_20_2.0']
                 df['bb_middle'] = bbands['BBM_20_2.0']
@@ -427,8 +441,14 @@ def calculate_indicators(df, MA_length=20):
                         periods += 1
                     
                     df['days_until_middle_breach'] = periods * 3  # Convert to days
+            elif bbands is None:
+                print(f"Debug: ta.bbands() returned None for {len(df)} data points")
+            elif bbands.empty:
+                print(f"Debug: ta.bbands() returned empty DataFrame for {len(df)} data points")
         except Exception as e:
             print(f"Warning: Could not calculate Bollinger Bands: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     # RSI - requires at least 14 points
     if len(df) >= 14:
@@ -3075,7 +3095,21 @@ def calculate_indicators(df, MA_length=20):
         try:
             # Match simple_report_app exactly: use std=2.0 parameter
             bbands = ta.bbands(df['close'], length=20, std=2.0)
-            if bbands is not None:
+            if bbands is not None and not bbands.empty:
+                # Debug: Check what columns we actually got
+                if 'BBU_20_2.0' not in bbands.columns:
+                    print(f"Debug: ta.bbands() returned columns: {list(bbands.columns)}")
+                    print(f"Debug: DataFrame shape: {bbands.shape}, type: {type(bbands)}")
+                    print(f"Debug: Looking for BBU_20_2.0, BBM_20_2.0, BBL_20_2.0")
+                    # Try to find columns with similar names
+                    upper_cols = [c for c in bbands.columns if 'BBU' in str(c) or 'upper' in str(c).lower()]
+                    middle_cols = [c for c in bbands.columns if 'BBM' in str(c) or 'middle' in str(c).lower()]
+                    lower_cols = [c for c in bbands.columns if 'BBL' in str(c) or 'lower' in str(c).lower()]
+                    print(f"Debug: Found upper-like columns: {upper_cols}")
+                    print(f"Debug: Found middle-like columns: {middle_cols}")
+                    print(f"Debug: Found lower-like columns: {lower_cols}")
+                    raise KeyError(f"BBU_20_2.0 column not found. Available columns: {list(bbands.columns)}")
+                
                 # Match simple_report_app exactly: access columns directly
                 df['bb_upper'] = bbands['BBU_20_2.0']
                 df['bb_middle'] = bbands['BBM_20_2.0']
@@ -3127,8 +3161,14 @@ def calculate_indicators(df, MA_length=20):
                         periods += 1
                     
                     df['days_until_middle_breach'] = periods * 3  # Convert to days
+            elif bbands is None:
+                print(f"Debug: ta.bbands() returned None for {len(df)} data points")
+            elif bbands.empty:
+                print(f"Debug: ta.bbands() returned empty DataFrame for {len(df)} data points")
         except Exception as e:
             print(f"Warning: Could not calculate Bollinger Bands: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     # RSI - requires at least 14 points
     if len(df) >= 14:
