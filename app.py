@@ -61,11 +61,15 @@ def get_salesforce_connection():
 
 def get_user_initials_from_system():
     """Get user initials from Windows username if approved"""
+    global sf_client
     try:
         if sf_client is None:
             sf_client = SalesforceClient()
         return sf_client.get_user_initials()
-    except Exception:
+    except Exception as e:
+        print(f"Error getting user initials from system: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 # HTML Templates
@@ -167,17 +171,27 @@ MAIN_TEMPLATE = """
 
         // Check for system username on load
         window.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOMContentLoaded: Checking system initials...');
+            // Hide step1 initially while we check
+            document.getElementById('step1').classList.add('hidden');
+            
             // Check if we can get initials from system (Windows username)
             try {
+                console.log('Fetching /api/get_system_initials...');
                 const response = await fetch('/api/get_system_initials');
+                console.log('Response status:', response.status);
                 const result = await response.json();
+                console.log('Response result:', result);
+                
                 if (result.success && result.initials) {
                     // User is approved - set initials and go directly to step 2
+                    console.log('User approved, initials:', result.initials);
                     userInitials = result.initials;
                     goToStep2();
                     return;
                 } else {
                     // User is NOT approved - show error and quit
+                    console.log('User not approved or no initials found');
                     showUnauthorizedError();
                     return;
                 }
@@ -548,26 +562,34 @@ def serve_image(filename):
 def get_system_initials():
     """Get user initials from Windows username if approved"""
     try:
+        print("DEBUG: /api/get_system_initials called")
         initials = get_user_initials_from_system()
+        print(f"DEBUG: get_user_initials_from_system returned: {initials}")
         if initials:
+            print(f"DEBUG: Returning success with initials: {initials}")
             return jsonify({
                 'success': True,
                 'initials': initials,
                 'source': 'system'
             })
         else:
+            print("DEBUG: No initials returned, user not approved or username not detected")
             return jsonify({
                 'success': False,
                 'initials': None,
                 'message': 'User not found in approved list or could not detect username'
             })
     except PermissionError as e:
+        print(f"DEBUG: PermissionError: {e}")
         return jsonify({
             'success': False,
             'error': str(e),
             'initials': None
         }), 403
     except Exception as e:
+        print(f"DEBUG: Exception in get_system_initials: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e),
