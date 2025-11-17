@@ -148,6 +148,14 @@ MAIN_TEMPLATE = """
                 <button class="back-button" onclick="goBackFromError()">back</button>
             </div>
         </div>
+
+        <!-- Step 6: Unauthorized user state -->
+        <div id="step6" class="step hidden">
+            <div class="q-icon">
+                <img src="/static/images/q-icon.svg" alt="Q">
+            </div>
+            <div class="error-message">Sorry, I don't recognise you</div>
+        </div>
     </div>
 
     <script>
@@ -156,70 +164,78 @@ MAIN_TEMPLATE = """
         let selectedAccountId = '';
         let selectedAccountName = '';
         let userAccounts = [];
-        let isReturningUser = false;
 
-        // Check for saved initials or system username on load
+        // Check for system username on load
         window.addEventListener('DOMContentLoaded', async () => {
-            // First check if we can get initials from system (Windows username)
+            // Check if we can get initials from system (Windows username)
             try {
                 const response = await fetch('/api/get_system_initials');
                 const result = await response.json();
                 if (result.success && result.initials) {
+                    // User is approved - set initials and go directly to step 2
                     userInitials = result.initials;
-                    isReturningUser = true;
-                    // Skip step 1 and go directly to step 2
                     goToStep2();
+                    return;
+                } else {
+                    // User is NOT approved - show error and quit
+                    showUnauthorizedError();
                     return;
                 }
             } catch (error) {
-                console.log('Could not get system initials, using manual input');
+                console.error('Error checking system initials:', error);
+                // If the API fails, also show unauthorized error
+                showUnauthorizedError();
             }
-            
-            // Fallback to saved initials or manual input
-            const savedInitials = localStorage.getItem('userInitials');
-            if (savedInitials) {
-                userInitials = savedInitials;
-                isReturningUser = true;
-            }
-            
-            // Set up initials input listener
-            const initialsInput = document.getElementById('initialsInput');
-            initialsInput.addEventListener('input', (e) => {
-                const value = e.target.value.trim();
-                document.getElementById('nextButton1').disabled = value.length === 0;
-            });
-            
-            // Prevent form submission on Enter
-            initialsInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !document.getElementById('nextButton1').disabled) {
-                    goToStep2();
-                }
-            });
         });
 
-        function goToStep2() {
-            // If userInitials is already set (from system), use it
-            // Otherwise get from input
-            if (!userInitials) {
-            const initialsInput = document.getElementById('initialsInput');
-            userInitials = initialsInput.value.trim();
+        function showUnauthorizedError() {
+            // Show "Sorry, I don't recognise you" message
+            const step1 = document.getElementById('step1');
+            const step6 = document.getElementById('step6');
             
-            if (!userInitials) return;
-            }
+            step1.classList.add('hidden');
+            step6.classList.remove('hidden');
             
-            // Save initials to localStorage
-            localStorage.setItem('userInitials', userInitials);
-            
-            // Transition to step 2
-            transitionTo('step1', 'step2', () => {
-                // Set welcome message
-                const welcomeText = isReturningUser ? 'Welcome back' : 'Welcome';
-                document.getElementById('welcomeMessage').innerHTML = 
-                    `${welcomeText}, <span style="font-style: italic;">${userInitials}</span>!`;
+            // Wait 5 seconds then quit the application
+            setTimeout(async () => {
+                try {
+                    // Send shutdown request to server
+                    await fetch('/api/shutdown', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                } catch (error) {
+                    console.log('Shutdown request sent');
+                }
                 
-                // Load user's accounts
-                loadUserAccounts(userInitials);
-            });
+                // Try to close the window
+                window.close();
+                
+                // If window.close() doesn't work (browser security), try alternative
+                setTimeout(() => {
+                    // Show message to manually close
+                    document.querySelector('#step6 .error-message').textContent = 
+                        'Sorry, I don\'t recognise you. Please close this window.';
+                }, 100);
+            }, 5000);
+        }
+
+        function goToStep2() {
+            if (!userInitials) return;
+            
+            // Transition to step 2 (skip step 1 entirely when coming from system auth)
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            
+            step1.classList.add('hidden');
+            step2.classList.remove('hidden');
+            
+            // Set welcome message - always "Welcome" (never "Welcome back")
+            document.getElementById('welcomeMessage').innerHTML = 
+                `Welcome, <span style="font-style: italic;">${userInitials}</span>!`;
+            
+            // Load user's accounts
+            loadUserAccounts(userInitials);
         }
 
         async function loadUserAccounts(initials) {
@@ -394,7 +410,6 @@ MAIN_TEMPLATE = """
 
         function goBackFromError() {
             // Reset to step 2 with remembered initials
-            isReturningUser = true;
             selectedAccountId = '';
             selectedAccountName = '';
             
@@ -405,9 +420,9 @@ MAIN_TEMPLATE = """
             
             // Transition back
             transitionTo('step5', 'step2', () => {
-                // Update welcome message for returning user
+                // Update welcome message - always "Welcome" (never "Welcome back")
                 document.getElementById('welcomeMessage').innerHTML = 
-                    `Welcome back, <span style="font-style: italic;">${userInitials}</span>!`;
+                    `Welcome, <span style="font-style: italic;">${userInitials}</span>!`;
                 
                 // Reload accounts
                 loadUserAccounts(userInitials);
@@ -558,6 +573,22 @@ def get_system_initials():
             'error': str(e),
             'initials': None
         }), 500
+
+@app.route('/api/shutdown', methods=['POST'])
+def shutdown():
+    """Shutdown the Flask server (for unauthorized users)"""
+    try:
+        print("Shutting down application - unauthorized user detected")
+        # Shutdown the Flask server
+        func = request.environ.get('werkzeug.server.shutdown')
+        if func is None:
+            # Alternative shutdown method
+            import os
+            os._exit(0)
+        func()
+        return jsonify({'success': True, 'message': 'Server shutting down...'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/get_user_accounts', methods=['POST'])
 def get_user_accounts():
