@@ -167,28 +167,36 @@ MAIN_TEMPLATE = """
         let userAccounts = [];
 
         // Check for system username on load
-        window.addEventListener('DOMContentLoaded', async () => {
-            // Hide step1 initially while we check authorization
+        window.addEventListener('DOMContentLoaded', async function() {
+            console.log('Page loaded, checking authorization...');
+            
+            // CRITICAL: Hide step1 immediately - NEVER show manual initials input
             document.getElementById('step1').classList.add('hidden');
             
             // Check if we can get initials from system (Windows username)
             try {
+                console.log('Fetching system initials from API...');
                 const response = await fetch('/api/get_system_initials');
-                const result = await response.json();
+                console.log('API response status:', response.status);
                 
-                if (result.success && result.initials) {
+                const result = await response.json();
+                console.log('API result:', result);
+                
+                if (result.success === true && result.initials) {
                     // User is approved - bypass step1 and go directly to step2
+                    console.log('✓ APPROVED USER:', result.initials);
                     userInitials = result.initials;
                     goToStep2Directly();
                     return;
                 } else {
                     // User is NOT approved - show error and quit
+                    console.log('✗ UNAUTHORIZED USER');
                     showUnauthorizedError();
                     return;
                 }
             } catch (error) {
-                console.error('Error checking system initials:', error);
-                // If the API fails, also show unauthorized error
+                console.error('✗ ERROR checking system initials:', error);
+                // If the API fails, also show unauthorized error (FAIL SECURE)
                 showUnauthorizedError();
             }
         });
@@ -226,42 +234,24 @@ MAIN_TEMPLATE = """
         }
 
         function goToStep2Directly() {
+            console.log('goToStep2Directly() called with initials:', userInitials);
+            
             // Directly show step2 without transition (for authorized users)
             const step1 = document.getElementById('step1');
             const step2 = document.getElementById('step2');
             
+            console.log('Hiding step1, showing step2');
             step1.classList.add('hidden');
             step2.classList.remove('hidden');
             
             // Set welcome message - always "Welcome" (never "Welcome back")
-            document.getElementById('welcomeMessage').innerHTML = 
-                `Welcome, <span style="font-style: italic;">${userInitials}</span>!`;
+            const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + userInitials + '</span>!';
+            console.log('Setting welcome message:', welcomeMessage);
+            document.getElementById('welcomeMessage').innerHTML = welcomeMessage;
             
             // Load user's accounts
+            console.log('Loading accounts for:', userInitials);
             loadUserAccounts(userInitials);
-        }
-        
-        function goToStep2() {
-            // Get initials from input if not already set
-            if (!userInitials) {
-                const initialsInput = document.getElementById('initialsInput');
-                userInitials = initialsInput.value.trim();
-                
-                if (!userInitials) return;
-            }
-            
-            // Save initials to localStorage
-            localStorage.setItem('userInitials', userInitials);
-            
-            // Transition to step 2
-            transitionTo('step1', 'step2', () => {
-                // Set welcome message - always "Welcome" (never "Welcome back")
-                document.getElementById('welcomeMessage').innerHTML = 
-                    `Welcome, <span style="font-style: italic;">${userInitials}</span>!`;
-                
-                // Load user's accounts
-                loadUserAccounts(userInitials);
-            });
         }
 
         async function loadUserAccounts(initials) {
