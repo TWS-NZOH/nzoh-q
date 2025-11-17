@@ -1,2 +1,2 @@
-"""B2B Insights Core Module"""
+"""Quantitative Sales Core Module"""
 

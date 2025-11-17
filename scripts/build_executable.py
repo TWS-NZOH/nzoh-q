@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build executable for B2B Insights
+Build executable for Quantitative Sales
 Creates a standalone executable using PyInstaller
 """
 
@@ -112,7 +112,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='B2B Insights',
+    name='Quantitative Sales',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -147,7 +147,7 @@ exe = EXE(
         print("=" * 70)
         print("Build complete!")
         print("=" * 70)
-        print(f"\nExecutable location: {dist_dir / 'B2B Insights'}")
+        print(f"\nExecutable location: {dist_dir / 'Quantitative Sales'}")
         print("\nYou can now distribute this executable to beta testers.")
         
     except subprocess.CalledProcessError as e:
@@ -159,7 +159,7 @@ exe = EXE(
 def main():
     """Main build function"""
     print("=" * 70)
-    print("B2B Insights - Executable Builder")
+    print("Quantitative Sales - Executable Builder")
     print("=" * 70)
     print()
     

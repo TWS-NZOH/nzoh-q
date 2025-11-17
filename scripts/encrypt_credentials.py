@@ -46,7 +46,7 @@ def encrypt_credentials(username, password, security_token, environment='live'):
 def main():
     """Main function to encrypt credentials"""
     print("=" * 70)
-    print("B2B Insights - Credential Encryption Tool")
+    print("Quantitative Sales - Credential Encryption Tool")
     print("=" * 70)
     print("\nThis tool will encrypt mblintegration credentials for embedding in the application.")
     print("The encrypted credentials will only work for approved beta testers.\n")

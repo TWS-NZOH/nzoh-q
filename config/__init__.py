@@ -1,2 +1,2 @@
-"""Configuration module for B2B Insights"""
+"""Configuration module for Quantitative Sales"""
 

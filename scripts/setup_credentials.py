@@ -15,7 +15,7 @@ from config.credentials_manager import CredentialsManager
 def main():
     """Main setup function"""
     print("\n" + "=" * 70)
-    print("B2B Insights - Initial Setup")
+    print("Quantitative Sales - Initial Setup")
     print("=" * 70)
     print("\nThis script will help you configure your Salesforce credentials.")
     print("Credentials will be encrypted and stored locally on your machine.\n")
@@ -35,7 +35,7 @@ def main():
         print("\n" + "=" * 70)
         print("Setup Complete!")
         print("=" * 70)
-        print("\nYou can now run the B2B Insights application.")
+        print("\nYou can now run the Quantitative Sales application.")
         print("Credentials are stored securely in:", manager.config_dir)
     else:
         print("\nSetup failed. Please try again.")

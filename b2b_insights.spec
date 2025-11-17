@@ -46,7 +46,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='B2B Insights',
+    name='Quantitative Sales',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

@@ -1,5 +1,5 @@
 """
-Auto-Updater for B2B Insights
+Auto-Updater for Quantitative Sales
 Checks GitHub for updates and downloads latest code
 """
 

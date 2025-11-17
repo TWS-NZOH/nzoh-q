@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-B2B Insights Launcher
+Quantitative Sales Launcher
 Auto-updates from GitHub and launches the application
 """
 
@@ -92,7 +92,7 @@ def launch_app():
         return False
     
     print("=" * 70)
-    print("B2B Insights - Starting Application")
+    print("Quantitative Sales - Starting Application")
     print("=" * 70)
     print()
     
@@ -128,9 +128,9 @@ def create_desktop_shortcut():
                 desktop = Path.home() / 'OneDrive' / 'Desktop'
             
             if desktop.exists():
-                shortcut = desktop / 'B2B Insights.lnk'
+                shortcut = desktop / 'Quantitative Sales.lnk'
                 # For Windows, we'll create a .bat file instead
-                bat_file = desktop / 'B2B Insights.bat'
+                bat_file = desktop / 'Quantitative Sales.bat'
                 with open(bat_file, 'w') as f:
                     f.write(f'@echo off\n')
                     f.write(f'cd /d "{app_dir}"\n')
@@ -141,7 +141,7 @@ def create_desktop_shortcut():
             # macOS: Create .command file
             desktop = Path.home() / 'Desktop'
             if desktop.exists():
-                command_file = desktop / 'B2B Insights.command'
+                command_file = desktop / 'Quantitative Sales.command'
                 with open(command_file, 'w') as f:
                     f.write('#!/bin/bash\n')
                     f.write(f'cd "{app_dir}"\n')
@@ -154,7 +154,7 @@ def create_desktop_shortcut():
 def main():
     """Main launcher function"""
     print("=" * 70)
-    print("B2B Insights - Launcher")
+    print("Quantitative Sales - Launcher")
     print("=" * 70)
     print()
     

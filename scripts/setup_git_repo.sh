@@ -5,7 +5,7 @@
 set -e  # Exit on error
 
 echo "=========================================="
-echo "B2B Insights - Git Repository Setup"
+echo "Quantitative Sales - Git Repository Setup"
 echo "=========================================="
 echo ""
 

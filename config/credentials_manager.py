@@ -126,7 +126,7 @@ class CredentialsManager:
     def setup_credentials_interactive(self):
         """Interactive setup for credentials"""
         print("=" * 70)
-        print("B2B Insights - Credential Setup")
+        print("Quantitative Sales - Credential Setup")
         print("=" * 70)
         print("\nPlease enter your Salesforce credentials:")
         print("(These will be encrypted and stored locally on your machine)\n")
