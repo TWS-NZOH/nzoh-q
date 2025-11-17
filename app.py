@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-B2B Insights Report App - Complete Solution
+Quantitative Sales Report App - Complete Solution
 Single file that handles everything: dependencies, web interface, and report generation
 """
 
@@ -76,7 +76,7 @@ MAIN_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B2B Insights - Q</title>
+    <title>Quantitative Sales - Q</title>
     <link rel="stylesheet" href="/static/css/landing.css">
 </head>
 <body>
@@ -190,20 +190,6 @@ MAIN_TEMPLATE = """
                 console.error('Error checking system initials:', error);
                 // If the API fails, also show unauthorized error
                 showUnauthorizedError();
-            }
-        });
-        
-        // Set up initials input listener for manual entry (only used if somehow step1 is shown)
-        const initialsInput = document.getElementById('initialsInput');
-        initialsInput.addEventListener('input', (e) => {
-            const value = e.target.value.trim();
-            document.getElementById('nextButton1').disabled = value.length === 0;
-        });
-        
-        // Prevent form submission on Enter
-        initialsInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !document.getElementById('nextButton1').disabled) {
-                goToStep2();
             }
         });
 
@@ -516,7 +502,7 @@ RESULTS_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B2B Insights - Report Results</title>
+    <title>Quantitative Sales - Report Results</title>
     <style>
         body { 
             margin: 0; 
@@ -1170,7 +1156,7 @@ def check_and_install_dependencies():
 def main():
     """Main function to start the application"""
     print("=" * 70)
-    print("🚀 B2B Insights - Report Generator")
+    print("🚀 Quantitative Sales - Report Generator")
     print("=" * 70)
     
     # Check dependencies
