@@ -66,10 +66,7 @@ def get_user_initials_from_system():
         if sf_client is None:
             sf_client = SalesforceClient()
         return sf_client.get_user_initials()
-    except Exception as e:
-        print(f"Error getting user initials from system: {e}")
-        import traceback
-        traceback.print_exc()
+    except Exception:
         return None
 
 # HTML Templates
@@ -171,27 +168,21 @@ MAIN_TEMPLATE = """
 
         // Check for system username on load
         window.addEventListener('DOMContentLoaded', async () => {
-            console.log('DOMContentLoaded: Checking system initials...');
-            // Hide step1 initially while we check
+            // Hide step1 initially while we check authorization
             document.getElementById('step1').classList.add('hidden');
             
             // Check if we can get initials from system (Windows username)
             try {
-                console.log('Fetching /api/get_system_initials...');
                 const response = await fetch('/api/get_system_initials');
-                console.log('Response status:', response.status);
                 const result = await response.json();
-                console.log('Response result:', result);
                 
                 if (result.success && result.initials) {
-                    // User is approved - set initials and go directly to step 2
-                    console.log('User approved, initials:', result.initials);
+                    // User is approved - bypass step1 and go directly to step2
                     userInitials = result.initials;
-                    goToStep2();
+                    goToStep2Directly();
                     return;
                 } else {
                     // User is NOT approved - show error and quit
-                    console.log('User not approved or no initials found');
                     showUnauthorizedError();
                     return;
                 }
@@ -199,6 +190,20 @@ MAIN_TEMPLATE = """
                 console.error('Error checking system initials:', error);
                 // If the API fails, also show unauthorized error
                 showUnauthorizedError();
+            }
+        });
+        
+        // Set up initials input listener for manual entry (only used if somehow step1 is shown)
+        const initialsInput = document.getElementById('initialsInput');
+        initialsInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            document.getElementById('nextButton1').disabled = value.length === 0;
+        });
+        
+        // Prevent form submission on Enter
+        initialsInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !document.getElementById('nextButton1').disabled) {
+                goToStep2();
             }
         });
 
@@ -234,10 +239,8 @@ MAIN_TEMPLATE = """
             }, 5000);
         }
 
-        function goToStep2() {
-            if (!userInitials) return;
-            
-            // Transition to step 2 (skip step 1 entirely when coming from system auth)
+        function goToStep2Directly() {
+            // Directly show step2 without transition (for authorized users)
             const step1 = document.getElementById('step1');
             const step2 = document.getElementById('step2');
             
@@ -250,6 +253,29 @@ MAIN_TEMPLATE = """
             
             // Load user's accounts
             loadUserAccounts(userInitials);
+        }
+        
+        function goToStep2() {
+            // Get initials from input if not already set
+            if (!userInitials) {
+                const initialsInput = document.getElementById('initialsInput');
+                userInitials = initialsInput.value.trim();
+                
+                if (!userInitials) return;
+            }
+            
+            // Save initials to localStorage
+            localStorage.setItem('userInitials', userInitials);
+            
+            // Transition to step 2
+            transitionTo('step1', 'step2', () => {
+                // Set welcome message - always "Welcome" (never "Welcome back")
+                document.getElementById('welcomeMessage').innerHTML = 
+                    `Welcome, <span style="font-style: italic;">${userInitials}</span>!`;
+                
+                // Load user's accounts
+                loadUserAccounts(userInitials);
+            });
         }
 
         async function loadUserAccounts(initials) {
@@ -562,34 +588,26 @@ def serve_image(filename):
 def get_system_initials():
     """Get user initials from Windows username if approved"""
     try:
-        print("DEBUG: /api/get_system_initials called")
         initials = get_user_initials_from_system()
-        print(f"DEBUG: get_user_initials_from_system returned: {initials}")
         if initials:
-            print(f"DEBUG: Returning success with initials: {initials}")
             return jsonify({
                 'success': True,
                 'initials': initials,
                 'source': 'system'
             })
         else:
-            print("DEBUG: No initials returned, user not approved or username not detected")
             return jsonify({
                 'success': False,
                 'initials': None,
                 'message': 'User not found in approved list or could not detect username'
             })
     except PermissionError as e:
-        print(f"DEBUG: PermissionError: {e}")
         return jsonify({
             'success': False,
             'error': str(e),
             'initials': None
         }), 403
     except Exception as e:
-        print(f"DEBUG: Exception in get_system_initials: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e),
