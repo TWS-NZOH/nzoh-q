@@ -11,6 +11,12 @@ import webbrowser
 import time
 from pathlib import Path
 
+# Print header immediately so users see something right away
+print("=" * 70)
+print("Quantitative Sales - Launcher")
+print("=" * 70)
+print()
+
 # Handle PyInstaller one-file executable
 # When running from PyInstaller, sys._MEIPASS contains the path to extracted files
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -127,10 +133,7 @@ def create_desktop_shortcut():
 
 def main():
     """Main launcher function"""
-    print("=" * 70)
-    print("Quantitative Sales - Launcher")
-    print("=" * 70)
-    print()
+    # Header already printed at script start
     
     # Check user authorization
     if not check_user_authorization():

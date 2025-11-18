@@ -77,6 +77,7 @@ MAIN_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quantitative Sales - Q</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/static/css/landing.css">
 </head>
 <body>
@@ -155,26 +156,39 @@ MAIN_TEMPLATE = """
 
         // Check authorization on page load (initials already available from template)
         window.addEventListener('DOMContentLoaded', function() {
-            // Ensure loading screen is visible initially
-            const loading = document.getElementById('loading');
-            const step2 = document.getElementById('step2');
-            const step6 = document.getElementById('step6');
-            
-            loading.classList.remove('hidden');
-            step2.classList.add('hidden');
-            step6.classList.add('hidden');
-            
-            // Check if user initials were provided (user is approved)
-            if (userInitials && userInitials.trim() !== '') {
-                // User is approved - show step2 directly
-                userInitials = userInitials.trim();
-                loading.classList.add('hidden');
-                showStep2();
-            } else {
-                // User is NOT approved - show error and quit
-                loading.classList.add('hidden');
-                showUnauthorizedError();
+            function checkAndShow() {
+                // Ensure loading screen is visible initially
+                const loading = document.getElementById('loading');
+                const step2 = document.getElementById('step2');
+                const step6 = document.getElementById('step6');
+                
+                if (!loading || !step2 || !step6) {
+                    // Elements not found - retry
+                    setTimeout(checkAndShow, 100);
+                    return;
+                }
+                
+                loading.classList.remove('hidden');
+                step2.classList.add('hidden');
+                step6.classList.add('hidden');
+                
+                // Check if user initials were provided (user is approved)
+                // Trim and check if not empty
+                userInitials = (userInitials || '').toString().trim();
+                
+                if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
+                    // User is approved - show step2 directly
+                    loading.classList.add('hidden');
+                    showStep2();
+                } else {
+                    // User is NOT approved - show error and quit
+                    loading.classList.add('hidden');
+                    showUnauthorizedError();
+                }
             }
+            
+            // Small delay to ensure all elements are ready
+            setTimeout(checkAndShow, 50);
         });
 
         function showUnauthorizedError() {
@@ -551,6 +565,12 @@ def results():
     encoded_html = urllib.parse.quote(current_analysis_result['html_report'])
     
     return render_template_string(RESULTS_TEMPLATE, html_report=encoded_html)
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon"""
+    from flask import send_from_directory
+    return send_from_directory(app_dir / 'static' / 'images', 'q-icon.ico', mimetype='image/x-icon')
 
 @app.route('/images/<filename>')
 def serve_image(filename):
