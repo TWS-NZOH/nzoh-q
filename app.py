@@ -82,16 +82,8 @@ MAIN_TEMPLATE = """
 </head>
 <body>
     <div class="landing-container">
-        <!-- Loading state (shown while checking authorization) -->
-        <div id="loading" class="step">
-            <div class="q-icon rotating">
-                <img src="/static/images/q-icon.svg" alt="Q">
-            </div>
-            <div class="loading-message">Checking authorization...</div>
-        </div>
-
-        <!-- Step 2: Account selection (default - no step1 needed) -->
-        <div id="step2" class="step hidden">
+        <!-- Step 2: Account selection (shown immediately if authorized) -->
+        <div id="step2" class="step {% if not user_initials %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -137,8 +129,8 @@ MAIN_TEMPLATE = """
             </div>
         </div>
 
-        <!-- Step 6: Unauthorized user state -->
-        <div id="step6" class="step hidden">
+        <!-- Step 6: Unauthorized user state (shown immediately if not authorized) -->
+        <div id="step6" class="step {% if user_initials %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -154,41 +146,19 @@ MAIN_TEMPLATE = """
         let selectedAccountName = '';
         let userAccounts = [];
 
-        // Check authorization on page load (initials already available from template)
+        // Authorization already checked server-side - just set up the page
         window.addEventListener('DOMContentLoaded', function() {
-            function checkAndShow() {
-                // Ensure loading screen is visible initially
-                const loading = document.getElementById('loading');
-                const step2 = document.getElementById('step2');
-                const step6 = document.getElementById('step6');
-                
-                if (!loading || !step2 || !step6) {
-                    // Elements not found - retry
-                    setTimeout(checkAndShow, 100);
-                    return;
-                }
-                
-                loading.classList.remove('hidden');
-                step2.classList.add('hidden');
-                step6.classList.add('hidden');
-                
-                // Check if user initials were provided (user is approved)
-                // Trim and check if not empty
-                userInitials = (userInitials || '').toString().trim();
-                
-                if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
-                    // User is approved - show step2 directly
-                    loading.classList.add('hidden');
-                    showStep2();
-                } else {
-                    // User is NOT approved - show error and quit
-                    loading.classList.add('hidden');
-                    showUnauthorizedError();
-                }
-            }
+            // Trim user initials
+            userInitials = (userInitials || '').toString().trim();
             
-            // Small delay to ensure all elements are ready
-            setTimeout(checkAndShow, 50);
+            // Check if user initials were provided (user is approved)
+            if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
+                // User is approved - set up step2
+                showStep2();
+            } else {
+                // User is NOT approved - set up error screen
+                showUnauthorizedError();
+            }
         });
 
         function showUnauthorizedError() {
