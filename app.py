@@ -128,7 +128,10 @@ MAIN_TEMPLATE = """
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
-            <div class="greeting" id="adminWelcomeMessage">Hi Admin <span id="adminInitials" style="font-style: italic;">{{ user_initials }}</span>, who would you like to be?</div>
+            <div class="greeting" id="adminWelcomeMessage">
+                Hi Admin <span id="adminInitials" style="font-style: italic;">{{ user_initials }}</span>.<br>
+                Who would you like to be?
+            </div>
             <div class="input-group">
                 <div class="initials-input-wrapper">
                     <input 
@@ -242,10 +245,15 @@ MAIN_TEMPLATE = """
                 adminDropdown.style.display = 'none';
             }
             
+            // Enable button if input already has text (in case of page refresh or pre-filled)
+            if (adminInput && adminNextButton) {
+                adminNextButton.disabled = !adminInput.value.trim();
+            }
+            
             if (adminInput) {
                 // Allow Enter key to submit
                 adminInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter' && !adminNextButton.disabled) {
+                    if (e.key === 'Enter' && adminNextButton && !adminNextButton.disabled) {
                         adminLoadAccounts();
                     }
                 });
@@ -260,6 +268,9 @@ MAIN_TEMPLATE = """
                         adminDropdown.style.display = 'none';
                     }
                 });
+                
+                // Focus the input field for better UX
+                adminInput.focus();
             }
         }
         
