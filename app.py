@@ -145,13 +145,10 @@ MAIN_TEMPLATE = """
                 </div>
                 <button class="next-button" id="adminNextButton" type="button">next</button>
             </div>
-            <div id="adminAccountDropdown" class="account-dropdown" style="position: relative; margin-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
-                <!-- Account options will be populated here -->
-            </div>
         </div>
         
-        <!-- Step 2: Account selection (shown immediately if authorized but not admin) -->
-        <div id="step2" class="step {% if not user_initials or is_admin %}hidden{% endif %}">
+        <!-- Step 2: Account selection (shown immediately if authorized but not admin, or after admin enters initials) -->
+        <div id="step2" class="step {% if not user_initials %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -238,12 +235,6 @@ MAIN_TEMPLATE = """
             // Set up admin initials input
             const adminInput = document.getElementById('adminInitialsInput');
             const adminNextButton = document.getElementById('adminNextButton');
-            const adminDropdown = document.getElementById('adminAccountDropdown');
-            
-            // Hide dropdown initially
-            if (adminDropdown) {
-                adminDropdown.style.display = 'none';
-            }
             
             // Set up button click handler
             if (adminNextButton) {
@@ -265,13 +256,6 @@ MAIN_TEMPLATE = """
                     }
                 });
                 
-                // Hide dropdown when user starts typing again
-                adminInput.addEventListener('input', function(e) {
-                    if (adminDropdown) {
-                        adminDropdown.style.display = 'none';
-                    }
-                });
-                
                 // Focus the input field for better UX
                 adminInput.focus();
             }
@@ -280,7 +264,6 @@ MAIN_TEMPLATE = """
         async function adminLoadAccounts() {
             console.log('Admin: adminLoadAccounts() called');
             const adminInput = document.getElementById('adminInitialsInput');
-            const adminDropdown = document.getElementById('adminAccountDropdown');
             const adminNextButton = document.getElementById('adminNextButton');
             
             if (!adminInput) {
@@ -294,74 +277,71 @@ MAIN_TEMPLATE = """
                 return;
             }
             
-            console.log('Admin: Loading accounts for', adminInput.value.trim().toUpperCase());
-            
             const targetInitials = adminInput.value.trim().toUpperCase();
+            console.log('Admin: Loading accounts for', targetInitials);
             
-            // Update button text while loading
-            if (adminNextButton) {
-                adminNextButton.textContent = 'loading...';
-            }
+            // Update userInitials to the target user's initials
+            userInitials = targetInitials;
             
-            try {
-                const response = await fetch('/api/get_user_accounts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: targetInitials })
-                });
-                
-                const result = await response.json();
-                
-                console.log('Admin: API response', result);
-                
-                if (result.success && result.accounts && result.accounts.length > 0) {
-                    console.log('Admin: Found', result.accounts.length, 'accounts');
-                    // Show dropdown with accounts
-                    if (adminDropdown) {
-                        adminDropdown.innerHTML = '';
-                        adminDropdown.style.display = 'block';
-                        adminDropdown.classList.add('show'); // Add show class for styling
+            // Transition to loading page immediately (like regular users)
+            transitionTo('step1', 'step3', async () => {
+                // Load accounts in the background (like regular users get pre-loaded)
+                try {
+                    console.log('Admin: Fetching accounts for', targetInitials);
+                    const response = await fetch('/api/get_user_accounts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: targetInitials })
+                    });
+                    
+                    const result = await response.json();
+                    console.log('Admin: API response', result);
+                    
+                    if (result.success) {
+                        // Store accounts (like regular users)
+                        userAccounts = result.accounts || [];
+                        console.log('Admin: Loaded', userAccounts.length, 'accounts');
                         
-                        result.accounts.forEach(account => {
-                            const option = document.createElement('div');
-                            option.className = 'account-option';
-                            option.textContent = account.name;
-                            option.setAttribute('data-account-id', account.id);
-                            option.setAttribute('data-account-name', account.name);
-                            option.onclick = () => {
-                                console.log('Admin: Account selected', account.name, account.id);
-                                selectedAccountId = account.id;
-                                selectedAccountName = account.name;
-                                // Transition from admin page (step1) to loading (step3)
-                                transitionTo('step1', 'step3', () => {
-                                    // Start report generation
-                                    generateReport(selectedAccountId);
-                                });
-                            };
-                            adminDropdown.appendChild(option);
+                        // Transition to account selection page (step2)
+                        transitionTo('step3', 'step2', () => {
+                            // Update welcome message with target user's initials
+                            const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
+                            const welcomeElement = document.getElementById('welcomeMessage');
+                            if (welcomeElement) {
+                                welcomeElement.innerHTML = welcomeMessage;
+                            }
+                            
+                            // Populate account dropdown (like regular users)
+                            populateAccountDropdown(userAccounts);
+                        });
+                    } else {
+                        // No accounts found - still show step2 but with empty accounts
+                        console.log('Admin: No accounts found or API error');
+                        userAccounts = [];
+                        
+                        transitionTo('step3', 'step2', () => {
+                            const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
+                            const welcomeElement = document.getElementById('welcomeMessage');
+                            if (welcomeElement) {
+                                welcomeElement.innerHTML = welcomeMessage;
+                            }
+                            populateAccountDropdown([]);
                         });
                     }
-                } else {
-                    console.log('Admin: No accounts found or API error');
-                    // No accounts found
-                    if (adminDropdown) {
-                        adminDropdown.innerHTML = '<div class="account-option" style="cursor: default; opacity: 0.6;">No accounts found for ' + targetInitials + '</div>';
-                        adminDropdown.style.display = 'block';
-                        adminDropdown.classList.add('show');
-                    }
+                } catch (error) {
+                    console.error('Error loading accounts:', error);
+                    // On error, still show step2 with empty accounts
+                    userAccounts = [];
+                    transitionTo('step3', 'step2', () => {
+                        const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
+                        const welcomeElement = document.getElementById('welcomeMessage');
+                        if (welcomeElement) {
+                            welcomeElement.innerHTML = welcomeMessage;
+                        }
+                        populateAccountDropdown([]);
+                    });
                 }
-            } catch (error) {
-                console.error('Error loading accounts:', error);
-                if (adminDropdown) {
-                    adminDropdown.innerHTML = '<div class="account-option" style="cursor: default; opacity: 0.6; color: #ef4444;">Error loading accounts</div>';
-                    adminDropdown.style.display = 'block';
-                }
-            } finally {
-                // Reset button text
-                if (adminNextButton) {
-                    adminNextButton.textContent = 'next';
-                }
-            }
+            });
         }
 
         function showUnauthorizedError() {
