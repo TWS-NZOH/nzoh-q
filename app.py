@@ -220,7 +220,10 @@ MAIN_TEMPLATE = """
             
             if (isAdmin) {
                 // Admin user - set up admin page (already visible from template)
-                setupAdminPage();
+                // Small delay to ensure DOM is fully ready
+                setTimeout(function() {
+                    setupAdminPage();
+                }, 50);
             } else if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
                 // User is approved - set up step2 (already visible from template)
                 showStep2();
@@ -231,29 +234,29 @@ MAIN_TEMPLATE = """
         });
         
         function setupAdminPage() {
-            // Set up admin initials input (matching simple_report_app structure)
+            // Set up admin initials input (matching simple_report_app structure exactly)
             const adminInput = document.getElementById('adminInitialsInput');
             const adminNextButton = document.getElementById('adminNextButton');
             
-            if (adminInput) {
-                // Enable/disable button based on input
-                adminInput.addEventListener('input', (e) => {
-                    const value = e.target.value.trim();
-                    if (adminNextButton) {
-                        adminNextButton.disabled = value.length === 0;
-                    }
-                });
-                
-                // Allow Enter key to submit
-                adminInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' && adminNextButton && !adminNextButton.disabled) {
-                        adminGoToStep2();
-                    }
-                });
-                
-                // Focus the input field
-                adminInput.focus();
+            if (!adminInput || !adminNextButton) {
+                return;
             }
+            
+            // Set up initials input listener (exactly like simple_report_app)
+            adminInput.addEventListener('input', (e) => {
+                const value = e.target.value.trim();
+                adminNextButton.disabled = value.length === 0;
+            });
+            
+            // Prevent form submission on Enter (exactly like simple_report_app)
+            adminInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !adminNextButton.disabled) {
+                    adminGoToStep2();
+                }
+            });
+            
+            // Focus the input field
+            adminInput.focus();
         }
         
         function adminGoToStep2() {
@@ -265,13 +268,16 @@ MAIN_TEMPLATE = """
             const targetInitials = adminInput.value.trim().toUpperCase();
             userInitials = targetInitials;
             
-            // Transition to step2 (account selection) - matching simple_report_app pattern
+            // Save initials to localStorage (matching simple_report_app)
+            localStorage.setItem('userInitials', targetInitials);
+            
+            // Transition to step2 (account selection) - matching simple_report_app pattern exactly
             transitionTo('step1', 'step2', () => {
-                // Update welcome message with target user's initials
+                // Set welcome message (matching simple_report_app)
                 const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
                 document.getElementById('welcomeMessage').innerHTML = welcomeMessage;
                 
-                // Load user's accounts
+                // Load user's accounts via simple_salesforce (matching simple_report_app)
                 loadUserAccounts(targetInitials);
             });
         }
