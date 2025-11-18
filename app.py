@@ -236,6 +236,7 @@ MAIN_TEMPLATE = """
         function setupAdminPage() {
             // Set up admin initials input - button is always clickable
             const adminInput = document.getElementById('adminInitialsInput');
+            const adminNextButton = document.getElementById('adminNextButton');
             
             if (adminInput) {
                 // Allow Enter key to submit
@@ -248,15 +249,28 @@ MAIN_TEMPLATE = """
                 // Focus the input field
                 adminInput.focus();
             }
+            
+            // Add explicit click event listener to button (in addition to onclick)
+            if (adminNextButton) {
+                adminNextButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    adminGoToStep2();
+                });
+            }
         }
         
         function adminGoToStep2() {
             const adminInput = document.getElementById('adminInitialsInput');
-            if (!adminInput || !adminInput.value.trim()) {
+            if (!adminInput) {
                 return;
             }
             
-            const targetInitials = adminInput.value.trim().toUpperCase();
+            const inputValue = adminInput.value.trim();
+            if (!inputValue) {
+                return;
+            }
+            
+            const targetInitials = inputValue.toUpperCase();
             userInitials = targetInitials;
             
             // Save initials to localStorage (matching simple_report_app)
@@ -266,12 +280,18 @@ MAIN_TEMPLATE = """
             transitionTo('step1', 'step2', () => {
                 // Set welcome message (matching simple_report_app)
                 const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
-                document.getElementById('welcomeMessage').innerHTML = welcomeMessage;
+                const welcomeElement = document.getElementById('welcomeMessage');
+                if (welcomeElement) {
+                    welcomeElement.innerHTML = welcomeMessage;
+                }
                 
                 // Load user's accounts via simple_salesforce (matching simple_report_app)
                 loadUserAccounts(targetInitials);
             });
         }
+        
+        // Make function globally accessible (for onclick attribute)
+        window.adminGoToStep2 = adminGoToStep2;
 
         function showUnauthorizedError() {
             // Ensure step6 is visible and step2 is hidden (should already be from template)
