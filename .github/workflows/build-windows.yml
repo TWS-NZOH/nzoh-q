@@ -78,7 +78,7 @@ jobs:
     - name: Upload executable artifact
       uses: actions/upload-artifact@v4
       with:
-        name: B2B-Insights-Windows-Exe
+        name: Quantitative-Sales-Windows-Exe
         path: dist/*.exe
         retention-days: 30
         

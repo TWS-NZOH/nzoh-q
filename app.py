@@ -81,29 +81,7 @@ MAIN_TEMPLATE = """
 </head>
 <body>
     <div class="landing-container">
-        <!-- Step 1: Initial greeting and initials input -->
-        <div id="step1" class="step">
-            <div class="q-icon">
-                <img src="/static/images/q-icon.svg" alt="Q" id="qIcon">
-            </div>
-            <div class="greeting">Hi, I'm Q</div>
-            <div class="question">What are your initials?</div>
-            <div class="input-group">
-                <div class="initials-input-wrapper">
-                    <input 
-                        type="text" 
-                        class="initials-input" 
-                        id="initialsInput"
-                        placeholder="tws"
-                        maxlength="10"
-                    >
-                    <span class="domain-suffix">@novonesis.com</span>
-                </div>
-                <button class="next-button" id="nextButton1" disabled onclick="goToStep2()">next</button>
-            </div>
-        </div>
-
-        <!-- Step 2: Account selection -->
+        <!-- Step 2: Account selection (default - no step1 needed) -->
         <div id="step2" class="step hidden">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
@@ -170,9 +148,6 @@ MAIN_TEMPLATE = """
         window.addEventListener('DOMContentLoaded', async function() {
             console.log('Page loaded, checking authorization...');
             
-            // CRITICAL: Hide step1 immediately - NEVER show manual initials input
-            document.getElementById('step1').classList.add('hidden');
-            
             // Check if we can get initials from system (Windows username)
             try {
                 console.log('Fetching system initials from API...');
@@ -183,10 +158,10 @@ MAIN_TEMPLATE = """
                 console.log('API result:', result);
                 
                 if (result.success === true && result.initials) {
-                    // User is approved - bypass step1 and go directly to step2
+                    // User is approved - show step2 directly
                     console.log('✓ APPROVED USER:', result.initials);
                     userInitials = result.initials;
-                    goToStep2Directly();
+                    showStep2();
                     return;
                 } else {
                     // User is NOT approved - show error and quit
@@ -203,10 +178,10 @@ MAIN_TEMPLATE = """
 
         function showUnauthorizedError() {
             // Show "Sorry, I don't recognise you" message
-            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
             const step6 = document.getElementById('step6');
             
-            step1.classList.add('hidden');
+            step2.classList.add('hidden');
             step6.classList.remove('hidden');
             
             // Wait 5 seconds then quit the application
@@ -233,15 +208,15 @@ MAIN_TEMPLATE = """
             }, 5000);
         }
 
-        function goToStep2Directly() {
-            console.log('goToStep2Directly() called with initials:', userInitials);
+        function showStep2() {
+            console.log('showStep2() called with initials:', userInitials);
             
-            // Directly show step2 without transition (for authorized users)
-            const step1 = document.getElementById('step1');
+            // Show step2 (for authorized users)
             const step2 = document.getElementById('step2');
+            const step6 = document.getElementById('step6');
             
-            console.log('Hiding step1, showing step2');
-            step1.classList.add('hidden');
+            console.log('Showing step2, hiding step6');
+            step6.classList.add('hidden');
             step2.classList.remove('hidden');
             
             // Set welcome message - always "Welcome" (never "Welcome back")
@@ -437,8 +412,8 @@ MAIN_TEMPLATE = """
             // Transition back
             transitionTo('step5', 'step2', () => {
                 // Update welcome message - always "Welcome" (never "Welcome back")
-                document.getElementById('welcomeMessage').innerHTML = 
-                    `Welcome, <span style="font-style: italic;">${userInitials}</span>!`;
+                const welcomeMsg = 'Welcome, <span style="font-style: italic;">' + userInitials + '</span>!';
+                document.getElementById('welcomeMessage').innerHTML = welcomeMsg;
                 
                 // Reload accounts
                 loadUserAccounts(userInitials);
