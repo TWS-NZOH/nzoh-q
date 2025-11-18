@@ -119,65 +119,33 @@ MAIN_TEMPLATE = """
             font-weight: 400;
             font-style: italic;
         }
-        /* Ensure admin input is always visible and interactable */
-        #adminInitialsInput {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            pointer-events: auto !important;
-            position: relative !important;
-            z-index: 10 !important;
-            width: 100% !important;
-            padding: 15px 20px !important;
-            font-size: 24px !important;
-            background: white !important;
-            border: 3px solid white !important;
-            border-radius: 8px !important;
-            color: #1e3a8a !important;
-        }
-        #adminNextButton {
-            pointer-events: auto !important;
-            cursor: pointer !important;
-            position: relative !important;
-            z-index: 10 !important;
-        }
-        .initials-input-wrapper {
-            position: relative !important;
-            pointer-events: none !important;
-        }
-        .initials-input-wrapper > * {
-            pointer-events: auto !important;
-        }
     </style>
 </head>
 <body>
     <div class="landing-container">
-        <!-- Step 1: Admin page (shown immediately if admin) -->
+        <!-- Step 1: Admin page (shown immediately if admin) - using simple_report_app pattern -->
         <div id="step1" class="step {% if not is_admin %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q" id="qIcon">
             </div>
             <div class="greeting">Hi Admin <span style="font-style: italic;">{{ user_initials }}</span></div>
-            <div class="question">Who would you like to be?</div>
+            <div class="question">What are your initials?</div>
             <div class="input-group">
                 <div class="initials-input-wrapper">
                     <input 
                         type="text" 
                         class="initials-input" 
-                        id="adminInitialsInput"
+                        id="initialsInput"
                         placeholder="tws"
                         maxlength="10"
-                        autocomplete="off"
-                        style="position: relative; z-index: 10; pointer-events: auto;"
-                        tabindex="0"
                     >
-                    <span class="domain-suffix" style="pointer-events: none; z-index: 1;">@novonesis.com</span>
+                    <span class="domain-suffix">@novonesis.com</span>
                 </div>
-                <button class="next-button" id="adminNextButton" onclick="adminGoToStep2()" style="position: relative; z-index: 10;">next</button>
+                <button class="next-button" id="nextButton1" disabled onclick="goToStep2()">next</button>
             </div>
         </div>
         
-        <!-- Step 2: Account selection (shown immediately if authorized but not admin) -->
+        <!-- Step 2: Account selection (shown immediately if authorized but not admin, or after admin enters initials) -->
         <div id="step2" class="step {% if not user_initials or is_admin %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
@@ -250,15 +218,28 @@ MAIN_TEMPLATE = """
             const isAdmin = {{ 'true' if is_admin else 'false' }};
             
             if (isAdmin) {
-                // Admin user - set up admin page (already visible from template)
-                // Try immediate setup first, then retry with delay
-                setupAdminPage();
-                setTimeout(function() {
-                    setupAdminPage();
-                }, 50);
-                setTimeout(function() {
-                    setupAdminPage();
-                }, 200);
+                // Admin user - set up admin page using simple_report_app pattern
+                // Check for saved initials on load (matching simple_report_app)
+                const savedInitials = localStorage.getItem('userInitials');
+                if (savedInitials) {
+                    userInitials = savedInitials;
+                }
+                
+                // Set up initials input listener (matching simple_report_app exactly)
+                const initialsInput = document.getElementById('initialsInput');
+                if (initialsInput) {
+                    initialsInput.addEventListener('input', (e) => {
+                        const value = e.target.value.trim();
+                        document.getElementById('nextButton1').disabled = value.length === 0;
+                    });
+                    
+                    // Prevent form submission on Enter (matching simple_report_app)
+                    initialsInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter' && !document.getElementById('nextButton1').disabled) {
+                            goToStep2();
+                        }
+                    });
+                }
             } else if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
                 // User is approved - set up step2 (already visible from template)
                 showStep2();
@@ -268,111 +249,34 @@ MAIN_TEMPLATE = """
             }
         });
         
-        function setupAdminPage() {
-            // Set up admin initials input - button is always clickable
-            const adminInput = document.getElementById('adminInitialsInput');
-            const adminNextButton = document.getElementById('adminNextButton');
-            
-            console.log('Setting up admin page...');
-            console.log('Admin input found:', !!adminInput);
-            console.log('Admin button found:', !!adminNextButton);
-            
-            if (adminInput) {
-                // Ensure input is visible and interactable
-                adminInput.style.display = 'block';
-                adminInput.style.visibility = 'visible';
-                adminInput.style.opacity = '1';
-                adminInput.style.pointerEvents = 'auto';
-                adminInput.removeAttribute('readonly');
-                adminInput.removeAttribute('disabled');
-                
-                // Allow Enter key to submit
-                adminInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        adminGoToStep2();
-                    }
-                });
-                
-                // Also handle input events to ensure field is working
-                adminInput.addEventListener('input', (e) => {
-                    console.log('Input value changed:', e.target.value);
-                });
-                
-                // Focus the input field with multiple attempts
-                setTimeout(() => {
-                    try {
-                        adminInput.focus();
-                        console.log('Focused admin input');
-                    } catch (e) {
-                        console.error('Error focusing input:', e);
-                    }
-                }, 100);
-                
-                setTimeout(() => {
-                    try {
-                        adminInput.focus();
-                    } catch (e) {
-                        console.error('Error focusing input (retry):', e);
-                    }
-                }, 300);
-            } else {
-                console.error('Admin input field not found!');
-            }
-            
-            // Add explicit click event listener to button (in addition to onclick)
-            if (adminNextButton) {
-                adminNextButton.style.pointerEvents = 'auto';
-                adminNextButton.style.cursor = 'pointer';
-                adminNextButton.removeAttribute('disabled');
-                
-                adminNextButton.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Button clicked');
-                    adminGoToStep2();
-                });
-            } else {
-                console.error('Admin button not found!');
-            }
-        }
-        
-        // Define adminGoToStep2 function and make it globally accessible (for onclick attribute)
-        function adminGoToStep2() {
-            const adminInput = document.getElementById('adminInitialsInput');
-            if (!adminInput) {
-                console.error('Admin input not found in adminGoToStep2');
+        // goToStep2 function - matching simple_report_app exactly
+        function goToStep2() {
+            const initialsInput = document.getElementById('initialsInput');
+            if (!initialsInput) {
                 return;
             }
             
-            const inputValue = adminInput.value.trim();
-            if (!inputValue) {
-                console.log('No input value, returning');
-                return;
-            }
+            userInitials = initialsInput.value.trim();
             
-            const targetInitials = inputValue.toUpperCase();
-            userInitials = targetInitials;
+            if (!userInitials) return;
             
             // Save initials to localStorage (matching simple_report_app)
-            localStorage.setItem('userInitials', targetInitials);
+            localStorage.setItem('userInitials', userInitials);
             
-            // Transition to step2 (account selection) - matching simple_report_app pattern exactly
+            // Transition to step 2 (matching simple_report_app exactly)
             transitionTo('step1', 'step2', () => {
                 // Set welcome message (matching simple_report_app)
-                const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
-                const welcomeElement = document.getElementById('welcomeMessage');
-                if (welcomeElement) {
-                    welcomeElement.innerHTML = welcomeMessage;
-                }
+                const welcomeText = 'Welcome';
+                document.getElementById('welcomeMessage').innerHTML = 
+                    `${welcomeText}, <span style="font-style: italic;">${userInitials}</span>!`;
                 
-                // Load user's accounts via simple_salesforce (matching simple_report_app)
-                loadUserAccounts(targetInitials);
+                // Load user's accounts (matching simple_report_app)
+                loadUserAccounts(userInitials);
             });
         }
         
-        // Make function globally accessible immediately (for onclick attribute)
-        window.adminGoToStep2 = adminGoToStep2;
+        // Make function globally accessible (for onclick attribute)
+        window.goToStep2 = goToStep2;
 
         function showUnauthorizedError() {
             // Ensure step6 is visible and step2 is hidden (should already be from template)
