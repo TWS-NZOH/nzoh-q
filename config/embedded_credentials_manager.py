@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from config.embedded_credentials import (
     ENCRYPTED_CREDENTIALS,
     APPROVED_USERS,
+    ADMIN_USERS,
     ENCRYPTION_PASSWORD,
     ENCRYPTION_SALT
 )
@@ -24,6 +25,7 @@ class EmbeddedCredentialsManager:
         """Initialize the credentials manager"""
         self.encrypted_credentials = ENCRYPTED_CREDENTIALS
         self.approved_users = APPROVED_USERS
+        self.admin_users = ADMIN_USERS
     
     def _get_windows_username(self):
         """Get Windows username"""
@@ -120,4 +122,11 @@ class EmbeddedCredentialsManager:
     def is_user_approved(self):
         """Check if current user is approved"""
         return self._is_approved_user()
+    
+    def is_admin_user(self):
+        """Check if current user is an admin"""
+        username = self._get_windows_username()
+        if not username:
+            return False
+        return username in [user.upper() for user in self.admin_users]
 

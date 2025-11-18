@@ -15,7 +15,9 @@ ENCRYPTED_CREDENTIALS = "Z0FBQUFBQnBFaXBRckNHQ1VKYnZ0bmR0Z0wyWUQ1M3V5cldseEg4NTI
 
 # Approved beta testers (Windows usernames)
 APPROVED_USERS = ['BECOB', 'BENM', 'MIYR', 'AOV', 'JETE', 'SACW', 'KYM', 'LEWA', 'CYK', 'TWS', 'AAPO'] # beta testers
-# ADMIN_USERS = ['TWS', 'AAPO'] # admin
+
+# Admin users (can impersonate other users)
+ADMIN_USERS = ['TWS', 'AAPO', 'BMER', 'JRAD', 'HATU', 'SPER', 'AMABA']
 # Encryption key derivation parameters (must match encrypt_credentials.py)
 ENCRYPTION_PASSWORD = b"b2b_insights_beta_2024"
 ENCRYPTION_SALT = b"b2b_insights_salt_v1"

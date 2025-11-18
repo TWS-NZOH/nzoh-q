@@ -70,6 +70,18 @@ def get_user_initials_from_system():
     except Exception:
         return None
 
+def is_admin_user():
+    """Check if current user is an admin"""
+    global sf_client
+    try:
+        if sf_client is None:
+            sf_client = SalesforceClient()
+        if hasattr(sf_client, 'credentials_manager') and hasattr(sf_client.credentials_manager, 'is_admin_user'):
+            return sf_client.credentials_manager.is_admin_user()
+        return False
+    except Exception:
+        return False
+
 # HTML Templates
 MAIN_TEMPLATE = """
 <!DOCTYPE html>
@@ -111,8 +123,32 @@ MAIN_TEMPLATE = """
 </head>
 <body>
     <div class="landing-container">
-        <!-- Step 2: Account selection (shown immediately if authorized) -->
-        <div id="step2" class="step {% if not user_initials %}hidden{% endif %}">
+        <!-- Step 1: Admin page (shown immediately if admin) -->
+        <div id="step1" class="step {% if not is_admin %}hidden{% endif %}">
+            <div class="q-icon">
+                <img src="/static/images/q-icon.svg" alt="Q">
+            </div>
+            <div class="greeting" id="adminWelcomeMessage">Hi Admin <span id="adminInitials" style="font-style: italic;">{{ user_initials }}</span>, who would you like to be?</div>
+            <div class="input-group">
+                <div class="initials-input-wrapper">
+                    <input 
+                        type="text" 
+                        class="initials-input" 
+                        id="adminInitialsInput"
+                        placeholder="tws"
+                        autocomplete="off"
+                    >
+                    <span class="domain-suffix">@novozymes.com</span>
+                </div>
+                <button class="next-button" id="adminNextButton" disabled onclick="adminLoadAccounts()">next</button>
+            </div>
+            <div id="adminAccountDropdown" class="account-dropdown" style="position: relative; margin-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
+                <!-- Account options will be populated here -->
+            </div>
+        </div>
+        
+        <!-- Step 2: Account selection (shown immediately if authorized but not admin) -->
+        <div id="step2" class="step {% if not user_initials or is_admin %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -181,8 +217,12 @@ MAIN_TEMPLATE = """
             // Trim user initials
             userInitials = (userInitials || '').toString().trim();
             
-            // Check if user initials were provided (user is approved)
-            if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
+            const isAdmin = {{ 'true' if is_admin else 'false' }};
+            
+            if (isAdmin) {
+                // Admin user - set up admin page (already visible from template)
+                setupAdminPage();
+            } else if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
                 // User is approved - set up step2 (already visible from template)
                 showStep2();
             } else {
@@ -190,6 +230,106 @@ MAIN_TEMPLATE = """
                 showUnauthorizedError();
             }
         });
+        
+        function setupAdminPage() {
+            // Set up admin initials input
+            const adminInput = document.getElementById('adminInitialsInput');
+            const adminNextButton = document.getElementById('adminNextButton');
+            const adminDropdown = document.getElementById('adminAccountDropdown');
+            
+            // Hide dropdown initially
+            if (adminDropdown) {
+                adminDropdown.style.display = 'none';
+            }
+            
+            if (adminInput) {
+                // Allow Enter key to submit
+                adminInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !adminNextButton.disabled) {
+                        adminLoadAccounts();
+                    }
+                });
+                
+                // Enable button when input has text
+                adminInput.addEventListener('input', function(e) {
+                    if (adminNextButton) {
+                        adminNextButton.disabled = !e.target.value.trim();
+                    }
+                    // Hide dropdown when user starts typing again
+                    if (adminDropdown) {
+                        adminDropdown.style.display = 'none';
+                    }
+                });
+            }
+        }
+        
+        async function adminLoadAccounts() {
+            const adminInput = document.getElementById('adminInitialsInput');
+            const adminDropdown = document.getElementById('adminAccountDropdown');
+            const adminNextButton = document.getElementById('adminNextButton');
+            
+            if (!adminInput || !adminInput.value.trim()) {
+                return;
+            }
+            
+            const targetInitials = adminInput.value.trim().toUpperCase();
+            
+            // Disable button while loading
+            if (adminNextButton) {
+                adminNextButton.disabled = true;
+                adminNextButton.textContent = 'loading...';
+            }
+            
+            try {
+                const response = await fetch('/api/get_user_accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: targetInitials })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.accounts && result.accounts.length > 0) {
+                    // Show dropdown with accounts
+                    if (adminDropdown) {
+                        adminDropdown.innerHTML = '';
+                        adminDropdown.style.display = 'block';
+                        
+                        result.accounts.forEach(account => {
+                            const option = document.createElement('div');
+                            option.className = 'account-option';
+                            option.textContent = account.name;
+                            option.setAttribute('data-account-id', account.id);
+                            option.setAttribute('data-account-name', account.name);
+                            option.onclick = () => {
+                                selectedAccountId = account.id;
+                                selectedAccountName = account.name;
+                                goToStep3();
+                            };
+                            adminDropdown.appendChild(option);
+                        });
+                    }
+                } else {
+                    // No accounts found
+                    if (adminDropdown) {
+                        adminDropdown.innerHTML = '<div class="account-option" style="cursor: default; opacity: 0.6;">No accounts found for ' + targetInitials + '</div>';
+                        adminDropdown.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading accounts:', error);
+                if (adminDropdown) {
+                    adminDropdown.innerHTML = '<div class="account-option" style="cursor: default; opacity: 0.6; color: #ef4444;">Error loading accounts</div>';
+                    adminDropdown.style.display = 'block';
+                }
+            } finally {
+                // Re-enable button
+                if (adminNextButton) {
+                    adminNextButton.disabled = false;
+                    adminNextButton.textContent = 'next';
+                }
+            }
+        }
 
         function showUnauthorizedError() {
             // Ensure step6 is visible and step2 is hidden (should already be from template)
@@ -549,6 +689,9 @@ def index():
     print("PAGE LOAD: Getting user data for template")
     print("="*70)
     
+    # Check if user is admin first
+    is_admin = is_admin_user()
+    
     if preloaded_user_data:
         user_initials = preloaded_user_data.get('initials')
         user_accounts = preloaded_user_data.get('accounts', [])
@@ -559,7 +702,9 @@ def index():
         user_accounts = []
         print(f"Fallback: Getting user initials now: {user_initials}")
     
-    if user_initials:
+    if is_admin:
+        print(f"✓ ADMIN USER: {user_initials} - Showing admin page")
+    elif user_initials:
         print(f"✓ APPROVED USER: {user_initials} - Passing to template")
     else:
         print("✗ UNAUTHORIZED USER - Will show error screen")
@@ -571,6 +716,7 @@ def index():
     
     return render_template_string(MAIN_TEMPLATE, 
                                 user_initials=user_initials or '',
+                                is_admin=is_admin,
                                 accounts_json=accounts_json,
                                 account_id='',
                                 account_name='',
@@ -1352,6 +1498,16 @@ def preload_user_data():
             print("✗ UNAUTHORIZED USER - Will show error screen")
             preloaded_user_data = {
                 'initials': None,
+                'accounts': []
+            }
+            return
+        
+        # Check if admin - admins don't need accounts pre-loaded
+        is_admin = is_admin_user()
+        if is_admin:
+            print(f"✓ ADMIN USER: {user_initials} - Skipping account pre-load (will enter manually)")
+            preloaded_user_data = {
+                'initials': user_initials,
                 'accounts': []
             }
             return
