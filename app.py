@@ -81,6 +81,14 @@ MAIN_TEMPLATE = """
 </head>
 <body>
     <div class="landing-container">
+        <!-- Loading state (shown while checking authorization) -->
+        <div id="loading" class="step">
+            <div class="q-icon rotating">
+                <img src="/static/images/q-icon.svg" alt="Q">
+            </div>
+            <div class="loading-message">Checking authorization...</div>
+        </div>
+
         <!-- Step 2: Account selection (default - no step1 needed) -->
         <div id="step2" class="step hidden">
             <div class="q-icon">
@@ -146,32 +154,40 @@ MAIN_TEMPLATE = """
 
         // Check for system username on load
         window.addEventListener('DOMContentLoaded', async function() {
-            console.log('Page loaded, checking authorization...');
+            // Ensure loading screen is visible
+            const loading = document.getElementById('loading');
+            const step2 = document.getElementById('step2');
+            const step6 = document.getElementById('step6');
+            
+            loading.classList.remove('hidden');
+            step2.classList.add('hidden');
+            step6.classList.add('hidden');
             
             // Check if we can get initials from system (Windows username)
             try {
-                console.log('Fetching system initials from API...');
                 const response = await fetch('/api/get_system_initials');
-                console.log('API response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error('API response not OK: ' + response.status);
+                }
                 
                 const result = await response.json();
-                console.log('API result:', result);
                 
                 if (result.success === true && result.initials) {
                     // User is approved - show step2 directly
-                    console.log('✓ APPROVED USER:', result.initials);
                     userInitials = result.initials;
+                    loading.classList.add('hidden');
                     showStep2();
                     return;
                 } else {
                     // User is NOT approved - show error and quit
-                    console.log('✗ UNAUTHORIZED USER');
+                    loading.classList.add('hidden');
                     showUnauthorizedError();
                     return;
                 }
             } catch (error) {
-                console.error('✗ ERROR checking system initials:', error);
                 // If the API fails, also show unauthorized error (FAIL SECURE)
+                loading.classList.add('hidden');
                 showUnauthorizedError();
             }
         });
@@ -193,7 +209,7 @@ MAIN_TEMPLATE = """
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (error) {
-                    console.log('Shutdown request sent');
+                    // Silently handle shutdown request
                 }
                 
                 // Try to close the window
@@ -209,23 +225,28 @@ MAIN_TEMPLATE = """
         }
 
         function showStep2() {
-            console.log('showStep2() called with initials:', userInitials);
+            if (!userInitials) {
+                showUnauthorizedError();
+                return;
+            }
             
             // Show step2 (for authorized users)
             const step2 = document.getElementById('step2');
             const step6 = document.getElementById('step6');
+            const loading = document.getElementById('loading');
             
-            console.log('Showing step2, hiding step6');
+            loading.classList.add('hidden');
             step6.classList.add('hidden');
             step2.classList.remove('hidden');
             
             // Set welcome message - always "Welcome" (never "Welcome back")
             const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + userInitials + '</span>!';
-            console.log('Setting welcome message:', welcomeMessage);
-            document.getElementById('welcomeMessage').innerHTML = welcomeMessage;
+            const welcomeElement = document.getElementById('welcomeMessage');
+            if (welcomeElement) {
+                welcomeElement.innerHTML = welcomeMessage;
+            }
             
             // Load user's accounts
-            console.log('Loading accounts for:', userInitials);
             loadUserAccounts(userInitials);
         }
 
@@ -239,16 +260,19 @@ MAIN_TEMPLATE = """
                 
                 const result = await response.json();
                 
-                if (result.success && result.accounts) {
-                    userAccounts = result.accounts;
-                    populateAccountDropdown(result.accounts);
+                if (result.success) {
+                    // Always populate dropdown, even if accounts array is empty
+                    userAccounts = result.accounts || [];
+                    populateAccountDropdown(userAccounts);
                 } else {
-                    console.error('Failed to load accounts:', result.error);
+                    // API call succeeded but returned error - show empty state
                     userAccounts = [];
+                    populateAccountDropdown([]);
                 }
             } catch (error) {
-                console.error('Error loading accounts:', error);
+                // On error, still show the page with empty accounts
                 userAccounts = [];
+                populateAccountDropdown([]);
             }
         }
 
@@ -538,27 +562,40 @@ def serve_image(filename):
 @app.route('/api/get_system_initials', methods=['GET'])
 def get_system_initials():
     """Get user initials from Windows username if approved"""
+    print("\n" + "="*70)
+    print("API CALL: /api/get_system_initials")
+    print("="*70)
     try:
         initials = get_user_initials_from_system()
+        print(f"get_user_initials_from_system() returned: {initials}")
+        
         if initials:
-            return jsonify({
+            response_data = {
                 'success': True,
                 'initials': initials,
                 'source': 'system'
-            })
+            }
+            print(f"Returning SUCCESS: {response_data}")
+            return jsonify(response_data)
         else:
-            return jsonify({
+            response_data = {
                 'success': False,
                 'initials': None,
                 'message': 'User not found in approved list or could not detect username'
-            })
+            }
+            print(f"Returning FAILURE: {response_data}")
+            return jsonify(response_data)
     except PermissionError as e:
+        print(f"PermissionError: {e}")
         return jsonify({
             'success': False,
             'error': str(e),
             'initials': None
         }), 403
     except Exception as e:
+        print(f"Exception in get_system_initials: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e),
@@ -584,11 +621,16 @@ def shutdown():
 @app.route('/api/get_user_accounts', methods=['POST'])
 def get_user_accounts():
     """Get accounts owned by a specific user"""
+    print("\n" + "="*70)
+    print("API CALL: /api/get_user_accounts")
+    print("="*70)
     try:
         data = request.get_json()
         username = data.get('username', '').strip().lower()
+        print(f"Request received for username: {username}")
         
         if not username:
+            print("ERROR: Username is empty")
             return jsonify({'error': 'Username is required', 'success': False}), 400
         
         # Set up Salesforce connection using secure credentials
@@ -707,6 +749,8 @@ def get_user_accounts():
         
         print(f"\nDEBUG: Filtered out {child_prefix_count} accounts with child prefixes")
         print(f"DEBUG: Returning {len(accounts)} parent/standalone accounts")
+        print(f"SUCCESS: Found {len(accounts)} accounts for user {username}")
+        print("="*70 + "\n")
         
         return jsonify({
             'success': True,
