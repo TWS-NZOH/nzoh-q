@@ -1159,8 +1159,10 @@ def main():
     browser_thread.start()
     
     # Start Flask app
+    # Use 127.0.0.1 (localhost) instead of 0.0.0.0 to avoid Windows Firewall prompts
+    # This only listens on localhost, not external network interfaces
     try:
-        app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False)
+        app.run(debug=False, host='127.0.0.1', port=port, use_reloader=False)
     except KeyboardInterrupt:
         print("\nApplication stopped by user")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Quantitative Sales Launcher
-Auto-updates from GitHub and launches the application
+Launches the application
 """
 
 import os
@@ -53,32 +53,6 @@ def check_credentials_embedded():
             return True
         return False
     except Exception:
-        return False
-
-def check_for_updates():
-    """Check for and apply updates from GitHub"""
-    try:
-        from scripts.auto_updater import AutoUpdater
-        
-        # When running from PyInstaller, don't pass app_dir so auto_updater uses permanent location
-        # When running from source, pass app_dir so updates go to source directory
-        update_app_dir = None if getattr(sys, 'frozen', False) else app_dir
-        
-        # GitHub repository for auto-updates
-        updater = AutoUpdater(
-            repo_owner='TWS-NZOH',  # GitHub organization/username
-            repo_name='Q',  # Repository name
-            branch='main',
-            app_dir=update_app_dir
-        )
-        
-        print("Checking for updates...")
-        updated, message = updater.update()
-        print(message)
-        return updated
-    except Exception as e:
-        print(f"Warning: Could not check for updates: {e}")
-        print("Continuing with current version...")
         return False
 
 def launch_app():
@@ -176,12 +150,6 @@ def main():
         response = input("\nContinue anyway? (yes/no) [no]: ").strip().lower()
         if response not in ['yes', 'y']:
             return
-    
-    # Check for updates (non-blocking)
-    try:
-        check_for_updates()
-    except:
-        pass  # Don't fail if update check fails
     
     # Create desktop shortcut if it doesn't exist
     create_desktop_shortcut()
