@@ -271,8 +271,11 @@ MAIN_TEMPLATE = """
             const adminNextButton = document.getElementById('adminNextButton');
             
             if (!adminInput || !adminInput.value.trim()) {
+                console.log('Admin: No input value, returning early');
                 return;
             }
+            
+            console.log('Admin: Loading accounts for', adminInput.value.trim().toUpperCase());
             
             const targetInitials = adminInput.value.trim().toUpperCase();
             
@@ -290,11 +293,15 @@ MAIN_TEMPLATE = """
                 
                 const result = await response.json();
                 
+                console.log('Admin: API response', result);
+                
                 if (result.success && result.accounts && result.accounts.length > 0) {
+                    console.log('Admin: Found', result.accounts.length, 'accounts');
                     // Show dropdown with accounts
                     if (adminDropdown) {
                         adminDropdown.innerHTML = '';
                         adminDropdown.style.display = 'block';
+                        adminDropdown.classList.add('show'); // Add show class for styling
                         
                         result.accounts.forEach(account => {
                             const option = document.createElement('div');
@@ -303,18 +310,25 @@ MAIN_TEMPLATE = """
                             option.setAttribute('data-account-id', account.id);
                             option.setAttribute('data-account-name', account.name);
                             option.onclick = () => {
+                                console.log('Admin: Account selected', account.name, account.id);
                                 selectedAccountId = account.id;
                                 selectedAccountName = account.name;
-                                goToStep3();
+                                // Transition from admin page (step1) to loading (step3)
+                                transitionTo('step1', 'step3', () => {
+                                    // Start report generation
+                                    generateReport(selectedAccountId);
+                                });
                             };
                             adminDropdown.appendChild(option);
                         });
                     }
                 } else {
+                    console.log('Admin: No accounts found or API error');
                     // No accounts found
                     if (adminDropdown) {
                         adminDropdown.innerHTML = '<div class="account-option" style="cursor: default; opacity: 0.6;">No accounts found for ' + targetInitials + '</div>';
                         adminDropdown.style.display = 'block';
+                        adminDropdown.classList.add('show');
                     }
                 }
             } catch (error) {
