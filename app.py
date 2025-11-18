@@ -147,14 +147,15 @@ MAIN_TEMPLATE = """
 
     <script>
         // State management
-        let userInitials = '';
+        // Get user initials from template (passed from server at page load)
+        let userInitials = '{{ user_initials }}';
         let selectedAccountId = '';
         let selectedAccountName = '';
         let userAccounts = [];
 
-        // Check for system username on load
-        window.addEventListener('DOMContentLoaded', async function() {
-            // Ensure loading screen is visible
+        // Check authorization on page load (initials already available from template)
+        window.addEventListener('DOMContentLoaded', function() {
+            // Ensure loading screen is visible initially
             const loading = document.getElementById('loading');
             const step2 = document.getElementById('step2');
             const step6 = document.getElementById('step6');
@@ -163,30 +164,14 @@ MAIN_TEMPLATE = """
             step2.classList.add('hidden');
             step6.classList.add('hidden');
             
-            // Check if we can get initials from system (Windows username)
-            try {
-                const response = await fetch('/api/get_system_initials');
-                
-                if (!response.ok) {
-                    throw new Error('API response not OK: ' + response.status);
-                }
-                
-                const result = await response.json();
-                
-                if (result.success === true && result.initials) {
-                    // User is approved - show step2 directly
-                    userInitials = result.initials;
-                    loading.classList.add('hidden');
-                    showStep2();
-                    return;
-                } else {
-                    // User is NOT approved - show error and quit
-                    loading.classList.add('hidden');
-                    showUnauthorizedError();
-                    return;
-                }
-            } catch (error) {
-                // If the API fails, also show unauthorized error (FAIL SECURE)
+            // Check if user initials were provided (user is approved)
+            if (userInitials && userInitials.trim() !== '') {
+                // User is approved - show step2 directly
+                userInitials = userInitials.trim();
+                loading.classList.add('hidden');
+                showStep2();
+            } else {
+                // User is NOT approved - show error and quit
                 loading.classList.add('hidden');
                 showUnauthorizedError();
             }
@@ -531,7 +516,22 @@ RESULTS_TEMPLATE = """
 @app.route('/')
 def index():
     """Main page with account selection"""
+    # Get user initials at startup (more efficient than API call)
+    print("\n" + "="*70)
+    print("PAGE LOAD: Getting user initials for template")
+    print("="*70)
+    user_initials = get_user_initials_from_system()
+    print(f"User initials from system: {user_initials}")
+    
+    if user_initials:
+        print(f"✓ APPROVED USER: {user_initials} - Passing to template")
+    else:
+        print("✗ UNAUTHORIZED USER - Will show error screen")
+    
+    print("="*70 + "\n")
+    
     return render_template_string(MAIN_TEMPLATE, 
+                                user_initials=user_initials or '',
                                 account_id='',
                                 account_name='',
                                 generated_time='',
