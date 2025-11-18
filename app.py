@@ -142,7 +142,7 @@ MAIN_TEMPLATE = """
                     >
                     <span class="domain-suffix">@novonesis.com</span>
                 </div>
-                <button class="next-button" id="adminNextButton" disabled onclick="adminGoToStep2()">next</button>
+                <button class="next-button" id="adminNextButton" onclick="adminGoToStep2()">next</button>
             </div>
         </div>
         
@@ -234,29 +234,20 @@ MAIN_TEMPLATE = """
         });
         
         function setupAdminPage() {
-            // Set up admin initials input (matching simple_report_app structure exactly)
+            // Set up admin initials input - button is always clickable
             const adminInput = document.getElementById('adminInitialsInput');
-            const adminNextButton = document.getElementById('adminNextButton');
             
-            if (!adminInput || !adminNextButton) {
-                return;
+            if (adminInput) {
+                // Allow Enter key to submit
+                adminInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        adminGoToStep2();
+                    }
+                });
+                
+                // Focus the input field
+                adminInput.focus();
             }
-            
-            // Set up initials input listener (exactly like simple_report_app)
-            adminInput.addEventListener('input', (e) => {
-                const value = e.target.value.trim();
-                adminNextButton.disabled = value.length === 0;
-            });
-            
-            // Prevent form submission on Enter (exactly like simple_report_app)
-            adminInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !adminNextButton.disabled) {
-                    adminGoToStep2();
-                }
-            });
-            
-            // Focus the input field
-            adminInput.focus();
         }
         
         function adminGoToStep2() {
