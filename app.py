@@ -143,7 +143,7 @@ MAIN_TEMPLATE = """
                     >
                     <span class="domain-suffix">@novozymes.com</span>
                 </div>
-                <button class="next-button" id="adminNextButton" onclick="adminLoadAccounts()">next</button>
+                <button class="next-button" id="adminNextButton" type="button">next</button>
             </div>
             <div id="adminAccountDropdown" class="account-dropdown" style="position: relative; margin-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
                 <!-- Account options will be populated here -->
@@ -245,10 +245,22 @@ MAIN_TEMPLATE = """
                 adminDropdown.style.display = 'none';
             }
             
+            // Set up button click handler
+            if (adminNextButton) {
+                adminNextButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Admin: Next button clicked');
+                    adminLoadAccounts();
+                });
+            }
+            
             if (adminInput) {
                 // Allow Enter key to submit
                 adminInput.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter' && adminInput.value.trim()) {
+                        e.preventDefault();
+                        console.log('Admin: Enter key pressed');
                         adminLoadAccounts();
                     }
                 });
@@ -266,12 +278,19 @@ MAIN_TEMPLATE = """
         }
         
         async function adminLoadAccounts() {
+            console.log('Admin: adminLoadAccounts() called');
             const adminInput = document.getElementById('adminInitialsInput');
             const adminDropdown = document.getElementById('adminAccountDropdown');
             const adminNextButton = document.getElementById('adminNextButton');
             
-            if (!adminInput || !adminInput.value.trim()) {
+            if (!adminInput) {
+                console.error('Admin: adminInput element not found');
+                return;
+            }
+            
+            if (!adminInput.value.trim()) {
                 console.log('Admin: No input value, returning early');
+                alert('Please enter initials');
                 return;
             }
             
