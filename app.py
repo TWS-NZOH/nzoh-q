@@ -143,7 +143,7 @@ MAIN_TEMPLATE = """
                     >
                     <span class="domain-suffix">@novozymes.com</span>
                 </div>
-                <button class="next-button" id="adminNextButton" disabled onclick="adminLoadAccounts()">next</button>
+                <button class="next-button" id="adminNextButton" onclick="adminLoadAccounts()">next</button>
             </div>
             <div id="adminAccountDropdown" class="account-dropdown" style="position: relative; margin-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
                 <!-- Account options will be populated here -->
@@ -245,25 +245,16 @@ MAIN_TEMPLATE = """
                 adminDropdown.style.display = 'none';
             }
             
-            // Enable button if input already has text (in case of page refresh or pre-filled)
-            if (adminInput && adminNextButton) {
-                adminNextButton.disabled = !adminInput.value.trim();
-            }
-            
             if (adminInput) {
                 // Allow Enter key to submit
                 adminInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter' && adminNextButton && !adminNextButton.disabled) {
+                    if (e.key === 'Enter' && adminInput.value.trim()) {
                         adminLoadAccounts();
                     }
                 });
                 
-                // Enable button when input has text
+                // Hide dropdown when user starts typing again
                 adminInput.addEventListener('input', function(e) {
-                    if (adminNextButton) {
-                        adminNextButton.disabled = !e.target.value.trim();
-                    }
-                    // Hide dropdown when user starts typing again
                     if (adminDropdown) {
                         adminDropdown.style.display = 'none';
                     }
