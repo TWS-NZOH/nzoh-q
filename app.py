@@ -119,6 +119,35 @@ MAIN_TEMPLATE = """
             font-weight: 400;
             font-style: italic;
         }
+        /* Ensure admin input is always visible and interactable */
+        #adminInitialsInput {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            position: relative !important;
+            z-index: 10 !important;
+            width: 100% !important;
+            padding: 15px 20px !important;
+            font-size: 24px !important;
+            background: white !important;
+            border: 3px solid white !important;
+            border-radius: 8px !important;
+            color: #1e3a8a !important;
+        }
+        #adminNextButton {
+            pointer-events: auto !important;
+            cursor: pointer !important;
+            position: relative !important;
+            z-index: 10 !important;
+        }
+        .initials-input-wrapper {
+            position: relative !important;
+            pointer-events: none !important;
+        }
+        .initials-input-wrapper > * {
+            pointer-events: auto !important;
+        }
     </style>
 </head>
 <body>
@@ -139,10 +168,12 @@ MAIN_TEMPLATE = """
                         placeholder="tws"
                         maxlength="10"
                         autocomplete="off"
+                        style="position: relative; z-index: 10; pointer-events: auto;"
+                        tabindex="0"
                     >
-                    <span class="domain-suffix">@novonesis.com</span>
+                    <span class="domain-suffix" style="pointer-events: none; z-index: 1;">@novonesis.com</span>
                 </div>
-                <button class="next-button" id="adminNextButton" onclick="adminGoToStep2()">next</button>
+                <button class="next-button" id="adminNextButton" onclick="adminGoToStep2()" style="position: relative; z-index: 10;">next</button>
             </div>
         </div>
         
@@ -220,10 +251,14 @@ MAIN_TEMPLATE = """
             
             if (isAdmin) {
                 // Admin user - set up admin page (already visible from template)
-                // Small delay to ensure DOM is fully ready
+                // Try immediate setup first, then retry with delay
+                setupAdminPage();
                 setTimeout(function() {
                     setupAdminPage();
                 }, 50);
+                setTimeout(function() {
+                    setupAdminPage();
+                }, 200);
             } else if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
                 // User is approved - set up step2 (already visible from template)
                 showStep2();
@@ -238,35 +273,81 @@ MAIN_TEMPLATE = """
             const adminInput = document.getElementById('adminInitialsInput');
             const adminNextButton = document.getElementById('adminNextButton');
             
+            console.log('Setting up admin page...');
+            console.log('Admin input found:', !!adminInput);
+            console.log('Admin button found:', !!adminNextButton);
+            
             if (adminInput) {
+                // Ensure input is visible and interactable
+                adminInput.style.display = 'block';
+                adminInput.style.visibility = 'visible';
+                adminInput.style.opacity = '1';
+                adminInput.style.pointerEvents = 'auto';
+                adminInput.removeAttribute('readonly');
+                adminInput.removeAttribute('disabled');
+                
                 // Allow Enter key to submit
                 adminInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
+                        e.preventDefault();
                         adminGoToStep2();
                     }
                 });
                 
-                // Focus the input field
-                adminInput.focus();
+                // Also handle input events to ensure field is working
+                adminInput.addEventListener('input', (e) => {
+                    console.log('Input value changed:', e.target.value);
+                });
+                
+                // Focus the input field with multiple attempts
+                setTimeout(() => {
+                    try {
+                        adminInput.focus();
+                        console.log('Focused admin input');
+                    } catch (e) {
+                        console.error('Error focusing input:', e);
+                    }
+                }, 100);
+                
+                setTimeout(() => {
+                    try {
+                        adminInput.focus();
+                    } catch (e) {
+                        console.error('Error focusing input (retry):', e);
+                    }
+                }, 300);
+            } else {
+                console.error('Admin input field not found!');
             }
             
             // Add explicit click event listener to button (in addition to onclick)
             if (adminNextButton) {
+                adminNextButton.style.pointerEvents = 'auto';
+                adminNextButton.style.cursor = 'pointer';
+                adminNextButton.removeAttribute('disabled');
+                
                 adminNextButton.addEventListener('click', (e) => {
                     e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Button clicked');
                     adminGoToStep2();
                 });
+            } else {
+                console.error('Admin button not found!');
             }
         }
         
+        // Define adminGoToStep2 function and make it globally accessible (for onclick attribute)
         function adminGoToStep2() {
             const adminInput = document.getElementById('adminInitialsInput');
             if (!adminInput) {
+                console.error('Admin input not found in adminGoToStep2');
                 return;
             }
             
             const inputValue = adminInput.value.trim();
             if (!inputValue) {
+                console.log('No input value, returning');
                 return;
             }
             
@@ -290,7 +371,7 @@ MAIN_TEMPLATE = """
             });
         }
         
-        // Make function globally accessible (for onclick attribute)
+        // Make function globally accessible immediately (for onclick attribute)
         window.adminGoToStep2 = adminGoToStep2;
 
         function showUnauthorizedError() {
