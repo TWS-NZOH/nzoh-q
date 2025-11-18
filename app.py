@@ -171,7 +171,7 @@ MAIN_TEMPLATE = """
                         <!-- Account options will be populated here -->
                     </div>
                 </div>
-                <button class="next-button" id="nextButton2" disabled onclick="goToStep3()">next</button>
+                <button class="next-button" id="nextButton2" onclick="goToStep3()">next</button>
             </div>
         </div>
 
@@ -276,9 +276,8 @@ MAIN_TEMPLATE = """
             
             const targetInitials = adminInput.value.trim().toUpperCase();
             
-            // Disable button while loading
+            // Update button text while loading
             if (adminNextButton) {
-                adminNextButton.disabled = true;
                 adminNextButton.textContent = 'loading...';
             }
             
@@ -325,9 +324,8 @@ MAIN_TEMPLATE = """
                     adminDropdown.style.display = 'block';
                 }
             } finally {
-                // Re-enable button
+                // Reset button text
                 if (adminNextButton) {
-                    adminNextButton.disabled = false;
                     adminNextButton.textContent = 'next';
                 }
             }
@@ -475,7 +473,6 @@ MAIN_TEMPLATE = """
                 if (selectedAccountId && searchTerm !== selectedAccountName) {
                     selectedAccountId = '';
                     selectedAccountName = '';
-                    document.getElementById('nextButton2').disabled = true;
                 }
             });
             
@@ -531,8 +528,7 @@ MAIN_TEMPLATE = """
             dropdown.classList.remove('show');
             dropdownArrow.classList.remove('open');
             
-            // Enable next button
-            document.getElementById('nextButton2').disabled = false;
+            // Account selected (button is always enabled)
         }
 
         function goToStep3() {
@@ -583,8 +579,6 @@ MAIN_TEMPLATE = """
             
             const searchInput = document.getElementById('accountSearchInput');
             searchInput.value = '';
-            
-            document.getElementById('nextButton2').disabled = true;
             
             // Transition back
             transitionTo('step5', 'step2', () => {
