@@ -111,20 +111,12 @@ MAIN_TEMPLATE = """
 </head>
 <body>
     <div class="landing-container">
-        <!-- Step 1: Initial loading state (shown immediately, hidden by JavaScript) -->
-        <div id="loading" class="step">
-            <div class="q-icon rotating">
-                <img src="/static/images/q-icon.svg" alt="Q" onerror="this.style.display='none'">
-            </div>
-            <div class="loading-message">Loading...</div>
-        </div>
-        
         <!-- Step 2: Account selection (shown immediately if authorized) -->
-        <div id="step2" class="step hidden">
+        <div id="step2" class="step {% if not user_initials %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
-            <div class="greeting" id="welcomeMessage">Welcome, <span id="userInitials"></span>!</div>
+            <div class="greeting" id="welcomeMessage">Welcome, <span id="userInitials" style="font-style: italic;">{{ user_initials }}</span>!</div>
             <div class="question">Who needs our attention?</div>
             <div class="input-group">
                 <div class="account-dropdown-wrapper">
@@ -183,39 +175,32 @@ MAIN_TEMPLATE = """
         let selectedAccountName = '';
         let userAccounts = {{ accounts_json|safe }};
 
-        // Show appropriate screen immediately (don't wait for DOMContentLoaded)
-        // This prevents blank blue screen
-        (function() {
+        // Page is already rendered with correct state from server-side template
+        // Just set up the page functionality when DOM is ready
+        window.addEventListener('DOMContentLoaded', function() {
             // Trim user initials
             userInitials = (userInitials || '').toString().trim();
             
             // Check if user initials were provided (user is approved)
             if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
-                // User is approved - set up step2 immediately
-                // Use setTimeout to ensure DOM is ready
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', showStep2);
-                } else {
-                    // DOM already loaded, show immediately
-                    setTimeout(showStep2, 0);
-                }
+                // User is approved - set up step2 (already visible from template)
+                showStep2();
             } else {
-                // User is NOT approved - set up error screen immediately
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', showUnauthorizedError);
-                } else {
-                    setTimeout(showUnauthorizedError, 0);
-                }
+                // User is NOT approved - set up error screen (already visible from template)
+                showUnauthorizedError();
             }
-        })();
+        });
 
         function showUnauthorizedError() {
-            // Show "Sorry, I don't recognise you" message
+            // Ensure step6 is visible and step2 is hidden (should already be from template)
             const step2 = document.getElementById('step2');
             const step6 = document.getElementById('step6');
             
-            step2.classList.add('hidden');
-            step6.classList.remove('hidden');
+            if (step2) step2.classList.add('hidden');
+            if (step6) {
+                step6.classList.remove('hidden');
+                step6.style.display = ''; // Ensure visible
+            }
             
             // Wait 5 seconds then quit the application
             setTimeout(async () => {
@@ -247,14 +232,15 @@ MAIN_TEMPLATE = """
                 return;
             }
             
-            // Show step2 (for authorized users)
+            // Ensure step2 is visible and step6 is hidden (should already be from template)
             const step2 = document.getElementById('step2');
             const step6 = document.getElementById('step6');
-            const loading = document.getElementById('loading');
             
-            if (loading) loading.classList.add('hidden');
             if (step6) step6.classList.add('hidden');
-            if (step2) step2.classList.remove('hidden');
+            if (step2) {
+                step2.classList.remove('hidden');
+                step2.style.display = ''; // Ensure visible
+            }
             
             // Set welcome message - always "Welcome" (never "Welcome back")
             const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + userInitials + '</span>!';
@@ -264,8 +250,11 @@ MAIN_TEMPLATE = """
             }
             
             // If accounts are already pre-loaded, use them; otherwise load them
-            if (userAccounts && userAccounts.length > 0) {
+            if (userAccounts && Array.isArray(userAccounts) && userAccounts.length > 0) {
                 populateAccountDropdown(userAccounts);
+            } else if (userAccounts && Array.isArray(userAccounts) && userAccounts.length === 0) {
+                // Explicitly handle empty accounts array
+                populateAccountDropdown([]);
             } else {
                 // Load user's accounts (fallback if pre-loading didn't work)
                 loadUserAccounts(userInitials);
