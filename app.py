@@ -51,6 +51,7 @@ CORS(app)
 # Global variables
 current_analysis_result = None
 sf_client = None
+preloaded_user_data = None  # Store pre-loaded user data
 
 def get_salesforce_connection():
     """Get or create Salesforce connection using secure credentials"""
@@ -79,11 +80,47 @@ MAIN_TEMPLATE = """
     <title>Quantitative Sales - Q</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/static/css/landing.css">
+    <style>
+        /* Fallback styles in case CSS doesn't load */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        .landing-container {
+            max-width: 800px;
+            width: 90%;
+            text-align: center;
+            padding: 40px;
+        }
+        .step.hidden {
+            display: none;
+        }
+        .loading-message {
+            font-size: 48px;
+            font-weight: 400;
+            font-style: italic;
+        }
+    </style>
 </head>
 <body>
     <div class="landing-container">
+        <!-- Step 1: Initial loading state (shown immediately, hidden by JavaScript) -->
+        <div id="loading" class="step">
+            <div class="q-icon rotating">
+                <img src="/static/images/q-icon.svg" alt="Q" onerror="this.style.display='none'">
+            </div>
+            <div class="loading-message">Loading...</div>
+        </div>
+        
         <!-- Step 2: Account selection (shown immediately if authorized) -->
-        <div id="step2" class="step {% if not user_initials %}hidden{% endif %}">
+        <div id="step2" class="step hidden">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -144,22 +181,33 @@ MAIN_TEMPLATE = """
         let userInitials = '{{ user_initials }}';
         let selectedAccountId = '';
         let selectedAccountName = '';
-        let userAccounts = [];
+        let userAccounts = {{ accounts_json|safe }};
 
-        // Authorization already checked server-side - just set up the page
-        window.addEventListener('DOMContentLoaded', function() {
+        // Show appropriate screen immediately (don't wait for DOMContentLoaded)
+        // This prevents blank blue screen
+        (function() {
             // Trim user initials
             userInitials = (userInitials || '').toString().trim();
             
             // Check if user initials were provided (user is approved)
             if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
-                // User is approved - set up step2
-                showStep2();
+                // User is approved - set up step2 immediately
+                // Use setTimeout to ensure DOM is ready
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', showStep2);
+                } else {
+                    // DOM already loaded, show immediately
+                    setTimeout(showStep2, 0);
+                }
             } else {
-                // User is NOT approved - set up error screen
-                showUnauthorizedError();
+                // User is NOT approved - set up error screen immediately
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', showUnauthorizedError);
+                } else {
+                    setTimeout(showUnauthorizedError, 0);
+                }
             }
-        });
+        })();
 
         function showUnauthorizedError() {
             // Show "Sorry, I don't recognise you" message
@@ -204,9 +252,9 @@ MAIN_TEMPLATE = """
             const step6 = document.getElementById('step6');
             const loading = document.getElementById('loading');
             
-            loading.classList.add('hidden');
-            step6.classList.add('hidden');
-            step2.classList.remove('hidden');
+            if (loading) loading.classList.add('hidden');
+            if (step6) step6.classList.add('hidden');
+            if (step2) step2.classList.remove('hidden');
             
             // Set welcome message - always "Welcome" (never "Welcome back")
             const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + userInitials + '</span>!';
@@ -215,8 +263,13 @@ MAIN_TEMPLATE = """
                 welcomeElement.innerHTML = welcomeMessage;
             }
             
-            // Load user's accounts
-            loadUserAccounts(userInitials);
+            // If accounts are already pre-loaded, use them; otherwise load them
+            if (userAccounts && userAccounts.length > 0) {
+                populateAccountDropdown(userAccounts);
+            } else {
+                // Load user's accounts (fallback if pre-loading didn't work)
+                loadUserAccounts(userInitials);
+            }
         }
 
         async function loadUserAccounts(initials) {
@@ -500,12 +553,22 @@ RESULTS_TEMPLATE = """
 @app.route('/')
 def index():
     """Main page with account selection"""
-    # Get user initials at startup (more efficient than API call)
+    # Use pre-loaded data if available, otherwise get it now
+    global preloaded_user_data
+    
     print("\n" + "="*70)
-    print("PAGE LOAD: Getting user initials for template")
+    print("PAGE LOAD: Getting user data for template")
     print("="*70)
-    user_initials = get_user_initials_from_system()
-    print(f"User initials from system: {user_initials}")
+    
+    if preloaded_user_data:
+        user_initials = preloaded_user_data.get('initials')
+        user_accounts = preloaded_user_data.get('accounts', [])
+        print(f"Using pre-loaded data: {user_initials}, {len(user_accounts)} accounts")
+    else:
+        # Fallback: get data now (shouldn't happen if pre-loading works)
+        user_initials = get_user_initials_from_system()
+        user_accounts = []
+        print(f"Fallback: Getting user initials now: {user_initials}")
     
     if user_initials:
         print(f"✓ APPROVED USER: {user_initials} - Passing to template")
@@ -514,8 +577,12 @@ def index():
     
     print("="*70 + "\n")
     
+    # Convert accounts to JSON for template
+    accounts_json = json.dumps(user_accounts) if user_accounts else '[]'
+    
     return render_template_string(MAIN_TEMPLATE, 
                                 user_initials=user_initials or '',
+                                accounts_json=accounts_json,
                                 account_id='',
                                 account_name='',
                                 generated_time='',
@@ -536,11 +603,24 @@ def results():
     
     return render_template_string(RESULTS_TEMPLATE, html_report=encoded_html)
 
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve static files (CSS, JS, images, fonts)"""
+    from flask import send_from_directory
+    try:
+        return send_from_directory(app_dir / 'static', filename)
+    except Exception as e:
+        print(f"Warning: Could not serve static file {filename}: {e}")
+        return '', 404
+
 @app.route('/favicon.ico')
 def favicon():
     """Serve favicon"""
     from flask import send_from_directory
-    return send_from_directory(app_dir / 'static' / 'images', 'q-icon.ico', mimetype='image/x-icon')
+    try:
+        return send_from_directory(app_dir / 'static' / 'images', 'q-icon.ico', mimetype='image/x-icon')
+    except:
+        return '', 404
 
 @app.route('/images/<filename>')
 def serve_image(filename):
@@ -616,10 +696,10 @@ def get_user_accounts():
     print("="*70)
     try:
         data = request.get_json()
-        username = data.get('username', '').strip().lower()
-        print(f"Request received for username: {username}")
+        username_input = data.get('username', '').strip()
+        print(f"Request received for username (original): {username_input}")
         
-        if not username:
+        if not username_input:
             print("ERROR: Username is empty")
             return jsonify({'error': 'Username is required', 'success': False}), 400
         
@@ -637,56 +717,153 @@ def get_user_accounts():
                 'error': f'Failed to connect to Salesforce: {str(e)}'
             }), 500
         
-        # Construct full email patterns to search
+        # Step 1: Try to find the actual User record in Salesforce to get the exact username format
+        # This handles case sensitivity issues
+        actual_username = None
+        username_variations = []
+        
+        # Generate username variations to try
+        username_lower = username_input.lower()
+        username_upper = username_input.upper()
+        
         # Try both novozymes.com and novonesis.com domains
         domains = ['novozymes.com', 'novonesis.com']
+        
+        # Build list of username variations to try
+        for domain in domains:
+            if '@' not in username_input:
+                username_variations.extend([
+                    f"{username_lower}@{domain}",
+                    f"{username_upper}@{domain}",
+                    f"{username_input}@{domain}"  # Original case
+                ])
+            else:
+                # Already has @, just add variations
+                username_variations.extend([
+                    username_lower,
+                    username_upper,
+                    username_input
+                ])
+        
+        print(f"DEBUG: Trying to find User record with username variations:")
+        for var in username_variations:
+            print(f"  - {var}")
+        
+        # Query User object to find the exact username format
+        for username_var in username_variations:
+            try:
+                user_query = f"""
+                    SELECT Id, Username, Email, FirstName, LastName
+                    FROM User
+                    WHERE Username = '{username_var}'
+                    LIMIT 1
+                """
+                print(f"DEBUG: Querying User object with: {username_var}")
+                user_result = sf.query(user_query)
+                
+                if user_result['records']:
+                    actual_username = user_result['records'][0]['Username']
+                    print(f"SUCCESS: Found User record with Username: {actual_username}")
+                    break
+            except Exception as e:
+                print(f"DEBUG: Query failed for {username_var}: {str(e)}")
+                continue
+        
+        # If we found the actual username, use it. Otherwise, try pattern matching
+        if actual_username:
+            username_to_use = actual_username
+            print(f"DEBUG: Using actual username from Salesforce: {username_to_use}")
+        else:
+            # Fallback: use the input username (case-insensitive search)
+            username_to_use = username_input.lower() if '@' not in username_input else username_input.lower()
+            print(f"DEBUG: User record not found, using input username (will try case-insensitive): {username_to_use}")
+        
         all_results = []
         
-        print(f"DEBUG: Searching for accounts owned by username: {username}")
-        
-        # Try exact matches with both domains first
-        # Only show parent accounts (or standalone accounts) - exclude child accounts
-        # Exclude any account name starting with '(' which indicates child accounts
-        for domain in domains:
-            full_username = username if '@' in username else f"{username}@{domain}"
-            
+        # Step 2: Query accounts using the actual username or variations
+        if actual_username:
+            # Use the exact username we found
             query = f"""
                 SELECT Id, Name, Owner.Username
                 FROM Account
-                WHERE Owner.Username = '{full_username}'
+                WHERE Owner.Username = '{actual_username}'
                 AND (NOT Name LIKE '(%')
                 ORDER BY Name ASC
             """
-            
-            print(f"DEBUG: Trying exact match: {full_username}")
-            print(f"       Filtering: Exclude account names starting with '('")
-            print(f"       Note: query_all() will automatically paginate to get ALL matching accounts")
+            print(f"DEBUG: Querying accounts with exact username: {actual_username}")
             result = sf.query_all(query)
             
             if len(result['records']) > 0:
                 print(f"DEBUG: Found {len(result['records'])} parent/standalone accounts with exact match")
                 all_results.extend(result['records'])
+        else:
+            # Try all username variations
+            print(f"DEBUG: Trying username variations to find accounts...")
+            for username_var in username_variations:
+                try:
+                    query = f"""
+                        SELECT Id, Name, Owner.Username
+                        FROM Account
+                        WHERE Owner.Username = '{username_var}'
+                        AND (NOT Name LIKE '(%')
+                        ORDER BY Name ASC
+                    """
+                    print(f"DEBUG: Trying exact match: {username_var}")
+                    result = sf.query_all(query)
+                    
+                    if len(result['records']) > 0:
+                        print(f"DEBUG: Found {len(result['records'])} parent/standalone accounts with exact match")
+                        all_results.extend(result['records'])
+                        break  # Found results, stop trying variations
+                except Exception as e:
+                    print(f"DEBUG: Query failed for {username_var}: {str(e)}")
+                    continue
         
-        # If no exact matches, use LIKE query to find accounts with username prefix
-        # Only show parent accounts (or standalone accounts) - exclude child accounts
-        # Exclude any account name starting with '(' which indicates child accounts
+        # If still no results, try case-insensitive LIKE query
+        # Note: SOQL LIKE is case-insensitive by default
         if len(all_results) == 0:
-            print(f"DEBUG: No exact match found, using pattern match...")
-            # Use LIKE query to match any domain
-            like_query = f"""
-                SELECT Id, Name, Owner.Username
-                FROM Account
-                WHERE Owner.Username LIKE '{username}@%'
-                AND (NOT Name LIKE '(%')
-                ORDER BY Name ASC
-            """
-            print(f"DEBUG: Executing LIKE query for '{username}@%'")
-            print(f"       Filtering: Exclude account names starting with '('")
-            print(f"       Note: query_all() will automatically paginate to get ALL matching accounts")
-            like_result = sf.query_all(like_query)
+            print(f"DEBUG: No exact match found, trying case-insensitive pattern match...")
+            # Extract the username part (before @) for pattern matching
+            username_part = username_input.split('@')[0] if '@' in username_input else username_input
             
-            print(f"DEBUG: Found {len(like_result['records'])} parent/standalone accounts with pattern match")
-            all_results.extend(like_result['records'])
+            # Try LIKE query (SOQL LIKE is case-insensitive by default)
+            # Try with both domains
+            for domain in domains:
+                try:
+                    like_query = f"""
+                        SELECT Id, Name, Owner.Username
+                        FROM Account
+                        WHERE Owner.Username LIKE '{username_part}@{domain}'
+                        AND (NOT Name LIKE '(%')
+                        ORDER BY Name ASC
+                    """
+                    print(f"DEBUG: Executing LIKE query for '{username_part}@{domain}'")
+                    like_result = sf.query_all(like_query)
+                    
+                    if len(like_result['records']) > 0:
+                        print(f"DEBUG: Found {len(like_result['records'])} parent/standalone accounts with pattern match")
+                        all_results.extend(like_result['records'])
+                        break  # Found results, stop trying
+                except Exception as e:
+                    print(f"DEBUG: LIKE query failed for {domain}: {str(e)}")
+                    continue
+            
+            # If still no results, try without domain (match any domain)
+            if len(all_results) == 0:
+                try:
+                    simple_like_query = f"""
+                        SELECT Id, Name, Owner.Username
+                        FROM Account
+                        WHERE Owner.Username LIKE '{username_part}@%'
+                        AND (NOT Name LIKE '(%')
+                        ORDER BY Name ASC
+                    """
+                    print(f"DEBUG: Trying LIKE query without domain: '{username_part}@%'")
+                    like_result = sf.query_all(simple_like_query)
+                    print(f"DEBUG: Found {len(like_result['records'])} accounts with simple LIKE query")
+                    all_results.extend(like_result['records'])
+                except Exception as e2:
+                    print(f"DEBUG: Simple LIKE query also failed: {str(e2)}")
         
         # Log what we found
         print(f"\n{'='*80}")
@@ -739,8 +916,27 @@ def get_user_accounts():
         
         print(f"\nDEBUG: Filtered out {child_prefix_count} accounts with child prefixes")
         print(f"DEBUG: Returning {len(accounts)} parent/standalone accounts")
-        print(f"SUCCESS: Found {len(accounts)} accounts for user {username}")
+        print(f"SUCCESS: Found {len(accounts)} accounts for user {username_input}")
         print("="*70 + "\n")
+        
+        # If no accounts found, provide helpful feedback
+        if len(accounts) == 0:
+            if actual_username:
+                print(f"WARNING: User '{actual_username}' found in Salesforce but has no accounts")
+                return jsonify({
+                    'success': True,
+                    'accounts': [],
+                    'count': 0,
+                    'message': f'User found but no accounts assigned. Username: {actual_username}'
+                })
+            else:
+                print(f"WARNING: Could not find User record for '{username_input}' in Salesforce")
+                return jsonify({
+                    'success': True,
+                    'accounts': [],
+                    'count': 0,
+                    'message': f'User not found in Salesforce. Please verify username: {username_input}'
+                })
         
         return jsonify({
             'success': True,
@@ -1152,6 +1348,108 @@ def check_and_install_dependencies():
     
     return True
 
+def preload_user_data():
+    """Pre-load user authorization and accounts before opening browser"""
+    global preloaded_user_data
+    print("\n" + "="*70)
+    print("PRE-LOADING: Checking authorization and loading accounts")
+    print("="*70)
+    
+    try:
+        # Get user initials
+        user_initials = get_user_initials_from_system()
+        
+        if not user_initials:
+            print("✗ UNAUTHORIZED USER - Will show error screen")
+            preloaded_user_data = {
+                'initials': None,
+                'accounts': []
+            }
+            return
+        
+        print(f"✓ APPROVED USER: {user_initials}")
+        
+        # Pre-load accounts from Salesforce
+        accounts = []
+        try:
+            sf = get_salesforce_connection()
+            
+            # Use the same logic as the API endpoint
+            username_input = user_initials
+            username_lower = username_input.lower()
+            username_upper = username_input.upper()
+            domains = ['novozymes.com', 'novonesis.com']
+            
+            # Try to find User record
+            actual_username = None
+            username_variations = []
+            for domain in domains:
+                if '@' not in username_input:
+                    username_variations.extend([
+                        f"{username_lower}@{domain}",
+                        f"{username_upper}@{domain}",
+                        f"{username_input}@{domain}"
+                    ])
+            
+            # Query User object
+            for username_var in username_variations:
+                try:
+                    user_query = f"""
+                        SELECT Id, Username, Email, FirstName, LastName
+                        FROM User
+                        WHERE Username = '{username_var}'
+                        LIMIT 1
+                    """
+                    user_result = sf.query(user_query)
+                    if user_result['records']:
+                        actual_username = user_result['records'][0]['Username']
+                        print(f"✓ Found User record: {actual_username}")
+                        break
+                except:
+                    continue
+            
+            # Query accounts
+            if actual_username:
+                query = f"""
+                    SELECT Id, Name, Owner.Username
+                    FROM Account
+                    WHERE Owner.Username = '{actual_username}'
+                    AND (NOT Name LIKE '(%')
+                    ORDER BY Name ASC
+                """
+                result = sf.query_all(query)
+                
+                # Filter out child accounts
+                for record in result['records']:
+                    account_name = record['Name']
+                    if not (account_name.startswith('(FS)') or account_name.startswith('(EN)') or 
+                           account_name.startswith('(DSS)') or account_name.startswith('(WS)') or 
+                           account_name.startswith('(RH)')):
+                        accounts.append({
+                            'id': record['Id'],
+                            'name': account_name
+                        })
+            
+            print(f"✓ Pre-loaded {len(accounts)} accounts")
+        except Exception as e:
+            print(f"⚠ Warning: Could not pre-load accounts: {str(e)}")
+            print("   Accounts will be loaded when page opens")
+            accounts = []
+        
+        preloaded_user_data = {
+            'initials': user_initials,
+            'accounts': accounts
+        }
+        
+    except Exception as e:
+        print(f"⚠ Error during pre-loading: {str(e)}")
+        preloaded_user_data = {
+            'initials': None,
+            'accounts': []
+        }
+    
+    print("="*70 + "\n")
+
 def main():
     """Main function to start the application"""
     print("=" * 70)
@@ -1172,6 +1470,9 @@ def main():
     
     print("✓ All requirements met")
     
+    # PRE-LOAD user data BEFORE starting server
+    preload_user_data()
+    
     # Setup port (kill existing processes and find available port)
     port = setup_port(5000)
     if not port:
@@ -1184,9 +1485,9 @@ def main():
     print("Press Ctrl+C to stop the server")
     print("=" * 70)
     
-    # Open browser after a short delay
+    # Open browser after server is ready (longer delay to ensure server is up)
     def open_browser():
-        time.sleep(2)
+        time.sleep(3)  # Increased delay to ensure server is ready
         webbrowser.open(f"http://localhost:{port}")
     
     browser_thread = threading.Thread(target=open_browser, daemon=True)
