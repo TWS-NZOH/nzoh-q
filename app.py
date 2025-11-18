@@ -126,12 +126,10 @@ MAIN_TEMPLATE = """
         <!-- Step 1: Admin page (shown immediately if admin) -->
         <div id="step1" class="step {% if not is_admin %}hidden{% endif %}">
             <div class="q-icon">
-                <img src="/static/images/q-icon.svg" alt="Q">
+                <img src="/static/images/q-icon.svg" alt="Q" id="qIcon">
             </div>
-            <div class="greeting" id="adminWelcomeMessage">
-                Hi Admin <span id="adminInitials" style="font-style: italic;">{{ user_initials }}</span>.<br>
-                Who would you like to be?
-            </div>
+            <div class="greeting">Hi Admin <span style="font-style: italic;">{{ user_initials }}</span></div>
+            <div class="question">Who would you like to be?</div>
             <div class="input-group">
                 <div class="initials-input-wrapper">
                     <input 
@@ -139,16 +137,17 @@ MAIN_TEMPLATE = """
                         class="initials-input" 
                         id="adminInitialsInput"
                         placeholder="tws"
+                        maxlength="10"
                         autocomplete="off"
                     >
-                    <span class="domain-suffix">@novozymes.com</span>
+                    <span class="domain-suffix">@novonesis.com</span>
                 </div>
-                <button class="next-button" id="adminNextButton" type="button">next</button>
+                <button class="next-button" id="adminNextButton" disabled onclick="adminGoToStep2()">next</button>
             </div>
         </div>
         
-        <!-- Step 2: Account selection (shown immediately if authorized but not admin, or after admin enters initials) -->
-        <div id="step2" class="step {% if not user_initials %}hidden{% endif %}">
+        <!-- Step 2: Account selection (shown immediately if authorized but not admin) -->
+        <div id="step2" class="step {% if not user_initials or is_admin %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -232,115 +231,48 @@ MAIN_TEMPLATE = """
         });
         
         function setupAdminPage() {
-            // Set up admin initials input
+            // Set up admin initials input (matching simple_report_app structure)
             const adminInput = document.getElementById('adminInitialsInput');
             const adminNextButton = document.getElementById('adminNextButton');
             
-            // Set up button click handler
-            if (adminNextButton) {
-                adminNextButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Admin: Next button clicked');
-                    adminLoadAccounts();
-                });
-            }
-            
             if (adminInput) {
-                // Allow Enter key to submit
-                adminInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter' && adminInput.value.trim()) {
-                        e.preventDefault();
-                        console.log('Admin: Enter key pressed');
-                        adminLoadAccounts();
+                // Enable/disable button based on input
+                adminInput.addEventListener('input', (e) => {
+                    const value = e.target.value.trim();
+                    if (adminNextButton) {
+                        adminNextButton.disabled = value.length === 0;
                     }
                 });
                 
-                // Focus the input field for better UX
+                // Allow Enter key to submit
+                adminInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && adminNextButton && !adminNextButton.disabled) {
+                        adminGoToStep2();
+                    }
+                });
+                
+                // Focus the input field
                 adminInput.focus();
             }
         }
         
-        async function adminLoadAccounts() {
-            console.log('Admin: adminLoadAccounts() called');
+        function adminGoToStep2() {
             const adminInput = document.getElementById('adminInitialsInput');
-            const adminNextButton = document.getElementById('adminNextButton');
-            
-            if (!adminInput) {
-                console.error('Admin: adminInput element not found');
-                return;
-            }
-            
-            if (!adminInput.value.trim()) {
-                console.log('Admin: No input value, returning early');
-                alert('Please enter initials');
+            if (!adminInput || !adminInput.value.trim()) {
                 return;
             }
             
             const targetInitials = adminInput.value.trim().toUpperCase();
-            console.log('Admin: Loading accounts for', targetInitials);
-            
-            // Update userInitials to the target user's initials
             userInitials = targetInitials;
             
-            // Transition to loading page immediately (like regular users)
-            transitionTo('step1', 'step3', async () => {
-                // Load accounts in the background (like regular users get pre-loaded)
-                try {
-                    console.log('Admin: Fetching accounts for', targetInitials);
-                    const response = await fetch('/api/get_user_accounts', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: targetInitials })
-                    });
-                    
-                    const result = await response.json();
-                    console.log('Admin: API response', result);
-                    
-                    if (result.success) {
-                        // Store accounts (like regular users)
-                        userAccounts = result.accounts || [];
-                        console.log('Admin: Loaded', userAccounts.length, 'accounts');
-                        
-                        // Transition to account selection page (step2)
-                        transitionTo('step3', 'step2', () => {
-                            // Update welcome message with target user's initials
-                            const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
-                            const welcomeElement = document.getElementById('welcomeMessage');
-                            if (welcomeElement) {
-                                welcomeElement.innerHTML = welcomeMessage;
-                            }
-                            
-                            // Populate account dropdown (like regular users)
-                            populateAccountDropdown(userAccounts);
-                        });
-                    } else {
-                        // No accounts found - still show step2 but with empty accounts
-                        console.log('Admin: No accounts found or API error');
-                        userAccounts = [];
-                        
-                        transitionTo('step3', 'step2', () => {
-                            const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
-                            const welcomeElement = document.getElementById('welcomeMessage');
-                            if (welcomeElement) {
-                                welcomeElement.innerHTML = welcomeMessage;
-                            }
-                            populateAccountDropdown([]);
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error loading accounts:', error);
-                    // On error, still show step2 with empty accounts
-                    userAccounts = [];
-                    transitionTo('step3', 'step2', () => {
-                        const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
-                        const welcomeElement = document.getElementById('welcomeMessage');
-                        if (welcomeElement) {
-                            welcomeElement.innerHTML = welcomeMessage;
-                        }
-                        populateAccountDropdown([]);
-                    });
-                }
+            // Transition to step2 (account selection) - matching simple_report_app pattern
+            transitionTo('step1', 'step2', () => {
+                // Update welcome message with target user's initials
+                const welcomeMessage = 'Welcome, <span style="font-style: italic;">' + targetInitials + '</span>!';
+                document.getElementById('welcomeMessage').innerHTML = welcomeMessage;
+                
+                // Load user's accounts
+                loadUserAccounts(targetInitials);
             });
         }
 
