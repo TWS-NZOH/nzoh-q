@@ -210,17 +210,60 @@ MAIN_TEMPLATE = """
         let userAccounts = {{ accounts_json|safe }};
 
         // Page is already rendered with correct state from server-side template
-        // Debug helper function to log to terminal
+        // Debug helper function to log to terminal (defined early, before DOMContentLoaded)
         function debugLog(eventType, message, details = {}) {
-            fetch('/api/debug', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ event: eventType, message: message, details: details })
-            }).catch(err => console.error('Debug log failed:', err));
+            // Always log to console first (visible in browser console)
+            const logMsg = `[DEBUG ${eventType}]: ${message}`;
+            console.log(logMsg, details);
+            
+            // Also send to server for terminal logging (with error handling)
+            const debugData = { event: eventType, message: message, details: details };
+            
+            // Use XMLHttpRequest as fallback if fetch fails
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/debug', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.onerror = function() {
+                    console.error('XHR Debug log failed for:', eventType);
+                };
+                xhr.send(JSON.stringify(debugData));
+            } catch (e) {
+                console.error('Debug log XHR error:', e);
+            }
+            
+            // Also try fetch as backup
+            try {
+                fetch('/api/debug', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(debugData)
+                }).catch(err => {
+                    console.error('Debug log fetch failed:', err);
+                });
+            } catch (e) {
+                console.error('Debug log fetch error:', e);
+            }
+        }
+        
+        // Make debugLog available globally immediately
+        window.debugLog = debugLog;
+        
+        // Test that debugLog works immediately
+        console.log('=== SCRIPT LOADED ===');
+        console.log('debugLog function defined:', typeof debugLog);
+        console.log('window.debugLog defined:', typeof window.debugLog);
+        
+        // Immediate test call
+        if (typeof debugLog === 'function') {
+            debugLog('SCRIPT_LOAD', 'JavaScript script block executed');
+        } else {
+            console.error('ERROR: debugLog is not a function!');
         }
         
         // Just set up the page functionality when DOM is ready
         window.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded fired - calling debugLog');
             debugLog('PAGE_LOAD', 'DOMContentLoaded event fired');
             
             // Trim user initials
@@ -228,15 +271,39 @@ MAIN_TEMPLATE = """
             debugLog('PAGE_LOAD', 'Initial userInitials value', { userInitials: userInitials });
             
             // ALWAYS set up initials input listener (matching simple_report_app exactly - no null check)
+            console.log('=== LOOKING FOR ELEMENTS ===');
             const initialsInput = document.getElementById('initialsInput');
             const nextButton = document.getElementById('nextButton1');
             
-            debugLog('PAGE_LOAD', 'Element lookup', {
+            const elementInfo = {
                 initialsInputFound: !!initialsInput,
                 nextButtonFound: !!nextButton,
                 initialsInputValue: initialsInput ? initialsInput.value : 'N/A',
-                nextButtonDisabled: nextButton ? nextButton.disabled : 'N/A'
-            });
+                nextButtonDisabled: nextButton ? nextButton.disabled : 'N/A',
+                allElements: document.querySelectorAll('*').length,
+                step1Exists: !!document.getElementById('step1'),
+                step1Classes: document.getElementById('step1') ? document.getElementById('step1').className : 'N/A'
+            };
+            
+            console.log('Element lookup results:', elementInfo);
+            debugLog('PAGE_LOAD', 'Element lookup', elementInfo);
+            
+            // If elements not found, log error immediately
+            if (!initialsInput) {
+                console.error('=== ERROR: initialsInput element NOT FOUND! ===');
+                console.error('Document body:', document.body);
+                console.error('All inputs:', document.querySelectorAll('input'));
+                debugLog('ERROR', 'initialsInput element NOT FOUND in DOM', {
+                    allInputs: Array.from(document.querySelectorAll('input')).map(i => ({id: i.id, name: i.name, type: i.type}))
+                });
+            }
+            if (!nextButton) {
+                console.error('=== ERROR: nextButton1 element NOT FOUND! ===');
+                console.error('All buttons:', document.querySelectorAll('button'));
+                debugLog('ERROR', 'nextButton1 element NOT FOUND in DOM', {
+                    allButtons: Array.from(document.querySelectorAll('button')).map(b => ({id: b.id, className: b.className}))
+                });
+            }
             
             if (initialsInput && nextButton) {
                 // Log initial button state
@@ -760,7 +827,14 @@ def index():
     print(f"  user_initials: {user_initials}")
     print(f"  step1 will be: {'visible' if is_admin else 'hidden'}")
     print(f"  step2 will be: {'hidden' if is_admin else 'visible' if user_initials else 'hidden'}")
+    print("="*70)
+    print("NOTE: If you don't see DEBUG messages after this, JavaScript may not be executing")
+    print("Check browser console (F12) for JavaScript errors")
     print("="*70 + "\n")
+    
+    # Flush output immediately
+    import sys
+    sys.stdout.flush()
     
     # Convert accounts to JSON for template
     accounts_json = json.dumps(user_accounts) if user_accounts else '[]'
@@ -789,11 +863,19 @@ def results():
     
     return render_template_string(RESULTS_TEMPLATE, html_report=encoded_html)
 
-@app.route('/api/debug', methods=['POST'])
+@app.route('/api/debug', methods=['POST', 'GET'])
 def debug_log():
     """Debug endpoint to log client-side events to terminal"""
     try:
-        data = request.get_json()
+        # Handle GET requests (test endpoint)
+        if request.method == 'GET':
+            print(f"\n{'='*70}")
+            print("DEBUG ENDPOINT TEST: GET request received")
+            print(f"{'='*70}\n")
+            return jsonify({'success': True, 'message': 'Debug endpoint is working'})
+        
+        # Handle POST requests
+        data = request.get_json() or {}
         event_type = data.get('event', 'unknown')
         message = data.get('message', '')
         details = data.get('details', {})
@@ -802,12 +884,27 @@ def debug_log():
         print(f"DEBUG [{event_type}]: {message}")
         if details:
             for key, value in details.items():
-                print(f"  {key}: {value}")
+                # Handle complex objects
+                if isinstance(value, (dict, list)):
+                    import json
+                    print(f"  {key}: {json.dumps(value, indent=4, default=str)}")
+                else:
+                    print(f"  {key}: {value}")
         print(f"{'='*70}\n")
+        
+        # Flush output to ensure it appears immediately
+        import sys
+        sys.stdout.flush()
         
         return jsonify({'success': True})
     except Exception as e:
+        import traceback
+        print(f"\n{'='*70}")
         print(f"DEBUG ERROR: {str(e)}")
+        print(traceback.format_exc())
+        print(f"{'='*70}\n")
+        import sys
+        sys.stdout.flush()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/static/<path:filename>')
