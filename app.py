@@ -215,30 +215,30 @@ MAIN_TEMPLATE = """
             // Trim user initials
             userInitials = (userInitials || '').toString().trim();
             
+            // ALWAYS set up initials input listener (matching simple_report_app - unconditional)
+            // This ensures it works even in executable environments
+            const initialsInput = document.getElementById('initialsInput');
+            if (initialsInput) {
+                initialsInput.addEventListener('input', (e) => {
+                    const value = e.target.value.trim();
+                    document.getElementById('nextButton1').disabled = value.length === 0;
+                });
+                
+                // Prevent form submission on Enter (matching simple_report_app)
+                initialsInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !document.getElementById('nextButton1').disabled) {
+                        goToStep2();
+                    }
+                });
+            }
+            
             const isAdmin = {{ 'true' if is_admin else 'false' }};
             
             if (isAdmin) {
-                // Admin user - set up admin page using simple_report_app pattern
-                // Check for saved initials on load (matching simple_report_app)
+                // Admin user - check for saved initials on load (matching simple_report_app)
                 const savedInitials = localStorage.getItem('userInitials');
                 if (savedInitials) {
                     userInitials = savedInitials;
-                }
-                
-                // Set up initials input listener (matching simple_report_app exactly)
-                const initialsInput = document.getElementById('initialsInput');
-                if (initialsInput) {
-                    initialsInput.addEventListener('input', (e) => {
-                        const value = e.target.value.trim();
-                        document.getElementById('nextButton1').disabled = value.length === 0;
-                    });
-                    
-                    // Prevent form submission on Enter (matching simple_report_app)
-                    initialsInput.addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter' && !document.getElementById('nextButton1').disabled) {
-                            goToStep2();
-                        }
-                    });
                 }
             } else if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
                 // User is approved - set up step2 (already visible from template)
