@@ -210,26 +210,101 @@ MAIN_TEMPLATE = """
         let userAccounts = {{ accounts_json|safe }};
 
         // Page is already rendered with correct state from server-side template
+        // Debug helper function to log to terminal
+        function debugLog(eventType, message, details = {}) {
+            fetch('/api/debug', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ event: eventType, message: message, details: details })
+            }).catch(err => console.error('Debug log failed:', err));
+        }
+        
         // Just set up the page functionality when DOM is ready
         window.addEventListener('DOMContentLoaded', function() {
+            debugLog('PAGE_LOAD', 'DOMContentLoaded event fired');
+            
             // Trim user initials
             userInitials = (userInitials || '').toString().trim();
+            debugLog('PAGE_LOAD', 'Initial userInitials value', { userInitials: userInitials });
             
             // ALWAYS set up initials input listener (matching simple_report_app exactly - no null check)
             const initialsInput = document.getElementById('initialsInput');
-            initialsInput.addEventListener('input', (e) => {
-                const value = e.target.value.trim();
-                document.getElementById('nextButton1').disabled = value.length === 0;
+            const nextButton = document.getElementById('nextButton1');
+            
+            debugLog('PAGE_LOAD', 'Element lookup', {
+                initialsInputFound: !!initialsInput,
+                nextButtonFound: !!nextButton,
+                initialsInputValue: initialsInput ? initialsInput.value : 'N/A',
+                nextButtonDisabled: nextButton ? nextButton.disabled : 'N/A'
             });
             
-            // Prevent form submission on Enter (matching simple_report_app)
-            initialsInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !document.getElementById('nextButton1').disabled) {
-                    goToStep2();
-                }
-            });
+            if (initialsInput && nextButton) {
+                // Log initial button state
+                debugLog('BUTTON_STATUS', 'Initial button state on page load', {
+                    buttonDisabled: nextButton.disabled,
+                    buttonReadOnly: nextButton.readOnly,
+                    buttonType: nextButton.type,
+                    inputValue: initialsInput.value,
+                    inputValueLength: initialsInput.value.length,
+                    inputDisabled: initialsInput.disabled,
+                    inputReadOnly: initialsInput.readOnly
+                });
+                
+                // Also add a click listener to the button for debugging
+                nextButton.addEventListener('click', function(e) {
+                    debugLog('BUTTON_CLICK_EVENT', 'Button click event fired', {
+                        buttonDisabled: this.disabled,
+                        inputValue: initialsInput.value,
+                        eventDefaultPrevented: e.defaultPrevented
+                    });
+                });
+                
+                initialsInput.addEventListener('input', (e) => {
+                    const value = e.target.value.trim();
+                    const button = document.getElementById('nextButton1');
+                    const wasDisabled = button ? button.disabled : 'unknown';
+                    
+                    if (button) {
+                        button.disabled = value.length === 0;
+                    }
+                    
+                    debugLog('INPUT_CHANGE', 'Input value changed', {
+                        inputValue: e.target.value,
+                        trimmedValue: value,
+                        trimmedLength: value.length,
+                        buttonWasDisabled: wasDisabled,
+                        buttonNowDisabled: button ? button.disabled : 'button not found',
+                        buttonElementExists: !!button
+                    });
+                });
+                
+                initialsInput.addEventListener('focus', () => {
+                    debugLog('INPUT_FOCUS', 'Input field received focus', {
+                        currentValue: initialsInput.value,
+                        buttonDisabled: nextButton ? nextButton.disabled : 'button not found'
+                    });
+                });
+                
+                // Prevent form submission on Enter (matching simple_report_app)
+                initialsInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        const button = document.getElementById('nextButton1');
+                        debugLog('ENTER_KEY', 'Enter key pressed', {
+                            inputValue: initialsInput.value,
+                            buttonDisabled: button ? button.disabled : 'button not found',
+                            willCallGoToStep2: button && !button.disabled
+                        });
+                        if (button && !button.disabled) {
+                            goToStep2();
+                        }
+                    }
+                });
+            } else {
+                debugLog('ERROR', 'initialsInput element not found!');
+            }
             
             const isAdmin = {{ 'true' if is_admin else 'false' }};
+            debugLog('PAGE_LOAD', 'User type determined', { isAdmin: isAdmin });
             
             if (isAdmin) {
                 // Admin user - show step1, hide step2
@@ -237,10 +312,19 @@ MAIN_TEMPLATE = """
                 const savedInitials = localStorage.getItem('userInitials');
                 if (savedInitials) {
                     userInitials = savedInitials;
+                    debugLog('PAGE_LOAD', 'Loaded saved initials from localStorage', { savedInitials: savedInitials });
                 }
                 // Ensure step1 is visible and step2 is hidden
-                document.getElementById('step1').classList.remove('hidden');
-                document.getElementById('step2').classList.add('hidden');
+                const step1 = document.getElementById('step1');
+                const step2 = document.getElementById('step2');
+                if (step1) step1.classList.remove('hidden');
+                if (step2) step2.classList.add('hidden');
+                debugLog('PAGE_LOAD', 'Admin: Showing step1, hiding step2', {
+                    step1Exists: !!step1,
+                    step2Exists: !!step2,
+                    step1HasHidden: step1 ? step1.classList.contains('hidden') : 'N/A',
+                    step2HasHidden: step2 ? step2.classList.contains('hidden') : 'N/A'
+                });
             } else if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
                 // User is approved - hide step1, show step2
                 document.getElementById('step1').classList.add('hidden');
@@ -255,13 +339,28 @@ MAIN_TEMPLATE = """
         // goToStep2 function - matching simple_report_app exactly
         function goToStep2() {
             const initialsInput = document.getElementById('initialsInput');
+            const nextButton = document.getElementById('nextButton1');
+            
+            debugLog('BUTTON_CLICK', 'goToStep2() called', {
+                initialsInputExists: !!initialsInput,
+                nextButtonExists: !!nextButton,
+                inputValue: initialsInput ? initialsInput.value : 'N/A',
+                buttonDisabled: nextButton ? nextButton.disabled : 'N/A'
+            });
+            
             if (!initialsInput) {
+                debugLog('ERROR', 'initialsInput not found in goToStep2()');
                 return;
             }
             
             userInitials = initialsInput.value.trim();
             
-            if (!userInitials) return;
+            if (!userInitials) {
+                debugLog('ERROR', 'userInitials is empty in goToStep2()');
+                return;
+            }
+            
+            debugLog('BUTTON_CLICK', 'Proceeding with goToStep2', { userInitials: userInitials });
             
             // Save initials to localStorage (matching simple_report_app)
             localStorage.setItem('userInitials', userInitials);
@@ -655,6 +754,12 @@ def index():
     else:
         print("✗ UNAUTHORIZED USER - Will show error screen")
     
+    print("="*70)
+    print(f"TEMPLATE RENDERING DEBUG:")
+    print(f"  is_admin: {is_admin}")
+    print(f"  user_initials: {user_initials}")
+    print(f"  step1 will be: {'visible' if is_admin else 'hidden'}")
+    print(f"  step2 will be: {'hidden' if is_admin else 'visible' if user_initials else 'hidden'}")
     print("="*70 + "\n")
     
     # Convert accounts to JSON for template
@@ -683,6 +788,27 @@ def results():
     encoded_html = urllib.parse.quote(current_analysis_result['html_report'])
     
     return render_template_string(RESULTS_TEMPLATE, html_report=encoded_html)
+
+@app.route('/api/debug', methods=['POST'])
+def debug_log():
+    """Debug endpoint to log client-side events to terminal"""
+    try:
+        data = request.get_json()
+        event_type = data.get('event', 'unknown')
+        message = data.get('message', '')
+        details = data.get('details', {})
+        
+        print(f"\n{'='*70}")
+        print(f"DEBUG [{event_type}]: {message}")
+        if details:
+            for key, value in details.items():
+                print(f"  {key}: {value}")
+        print(f"{'='*70}\n")
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"DEBUG ERROR: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
