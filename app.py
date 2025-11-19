@@ -123,8 +123,8 @@ MAIN_TEMPLATE = """
 </head>
 <body>
     <div class="landing-container">
-        <!-- Step 1: Admin page (shown immediately if admin) - using simple_report_app pattern -->
-        <div id="step1" class="step {% if not is_admin %}hidden{% endif %}">
+        <!-- Step 1: Admin page (always in DOM, like simple_report_app) -->
+        <div id="step1" class="step">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q" id="qIcon">
             </div>
@@ -215,36 +215,39 @@ MAIN_TEMPLATE = """
             // Trim user initials
             userInitials = (userInitials || '').toString().trim();
             
-            // ALWAYS set up initials input listener (matching simple_report_app - unconditional)
-            // This ensures it works even in executable environments
+            // ALWAYS set up initials input listener (matching simple_report_app exactly - no null check)
             const initialsInput = document.getElementById('initialsInput');
-            if (initialsInput) {
-                initialsInput.addEventListener('input', (e) => {
-                    const value = e.target.value.trim();
-                    document.getElementById('nextButton1').disabled = value.length === 0;
-                });
-                
-                // Prevent form submission on Enter (matching simple_report_app)
-                initialsInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' && !document.getElementById('nextButton1').disabled) {
-                        goToStep2();
-                    }
-                });
-            }
+            initialsInput.addEventListener('input', (e) => {
+                const value = e.target.value.trim();
+                document.getElementById('nextButton1').disabled = value.length === 0;
+            });
+            
+            // Prevent form submission on Enter (matching simple_report_app)
+            initialsInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !document.getElementById('nextButton1').disabled) {
+                    goToStep2();
+                }
+            });
             
             const isAdmin = {{ 'true' if is_admin else 'false' }};
             
             if (isAdmin) {
-                // Admin user - check for saved initials on load (matching simple_report_app)
+                // Admin user - show step1, hide step2
+                // Check for saved initials on load (matching simple_report_app)
                 const savedInitials = localStorage.getItem('userInitials');
                 if (savedInitials) {
                     userInitials = savedInitials;
                 }
+                // Ensure step1 is visible and step2 is hidden
+                document.getElementById('step1').classList.remove('hidden');
+                document.getElementById('step2').classList.add('hidden');
             } else if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
-                // User is approved - set up step2 (already visible from template)
+                // User is approved - hide step1, show step2
+                document.getElementById('step1').classList.add('hidden');
                 showStep2();
             } else {
-                // User is NOT approved - set up error screen (already visible from template)
+                // User is NOT approved - hide step1, show error screen
+                document.getElementById('step1').classList.add('hidden');
                 showUnauthorizedError();
             }
         });
