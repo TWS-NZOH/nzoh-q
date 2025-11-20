@@ -19,6 +19,8 @@ on:
 jobs:
   build-and-release:
     runs-on: windows-latest
+    permissions:
+      contents: write  # Required to create releases and tags
     
     steps:
     - name: Checkout repository
@@ -104,35 +106,6 @@ jobs:
           echo "tag=$tag" >> $env:GITHUB_OUTPUT
         }
     
-    - name: Create Git tag (if manual trigger)
-      if: github.event_name == 'workflow_dispatch'
-      shell: pwsh
-      run: |
-        $tag = "${{ steps.version.outputs.tag }}"
-        Write-Host "Checking if tag exists: $tag"
-        
-        # Check if tag already exists locally or remotely
-        $tagExists = $false
-        try {
-          git fetch --tags
-          $existingTag = git tag -l "$tag"
-          if ($existingTag) {
-            Write-Host "Tag $tag already exists, skipping creation"
-            $tagExists = $true
-          }
-        } catch {
-          Write-Host "Error checking tags: $_"
-        }
-        
-        if (-not $tagExists) {
-          Write-Host "Creating tag: $tag"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$tag" -m "Release $tag"
-          git push origin "$tag"
-          Write-Host "Tag $tag created and pushed"
-        }
-    
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
@@ -147,6 +120,7 @@ jobs:
         draft: false
         prerelease: false
         generate_release_notes: false
+        make_latest: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
