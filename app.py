@@ -70,17 +70,6 @@ def get_user_initials_from_system():
     except Exception:
         return None
 
-def is_admin_user():
-    """Check if current user is an admin"""
-    global sf_client
-    try:
-        if sf_client is None:
-            sf_client = SalesforceClient()
-        if hasattr(sf_client, 'credentials_manager') and hasattr(sf_client.credentials_manager, 'is_admin_user'):
-            return sf_client.credentials_manager.is_admin_user()
-        return False
-    except Exception:
-        return False
 
 # HTML Templates
 MAIN_TEMPLATE = """
@@ -123,30 +112,8 @@ MAIN_TEMPLATE = """
 </head>
 <body>
     <div class="landing-container">
-        <!-- Step 1: Admin page (always in DOM, like simple_report_app) -->
-        <div id="step1" class="step">
-            <div class="q-icon">
-                <img src="/static/images/q-icon.svg" alt="Q" id="qIcon">
-            </div>
-            <div class="greeting">Hi Admin <span style="font-style: italic;">{{ user_initials }}</span></div>
-            <div class="question">What are your initials?</div>
-            <div class="input-group">
-                <div class="initials-input-wrapper">
-                    <input 
-                        type="text" 
-                        class="initials-input" 
-                        id="initialsInput"
-                        placeholder="tws"
-                        maxlength="10"
-                    >
-                    <span class="domain-suffix">@novonesis.com</span>
-                </div>
-                <button class="next-button" id="nextButton1" disabled onclick="goToStep2()">next</button>
-            </div>
-        </div>
-        
-        <!-- Step 2: Account selection (shown immediately if authorized but not admin, or after admin enters initials) -->
-        <div id="step2" class="step {% if not user_initials or is_admin %}hidden{% endif %}">
+        <!-- Step 2: Account selection (shown immediately if authorized) -->
+        <div id="step2" class="step {% if not user_initials %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -270,182 +237,15 @@ MAIN_TEMPLATE = """
             userInitials = (userInitials || '').toString().trim();
             debugLog('PAGE_LOAD', 'Initial userInitials value', { userInitials: userInitials });
             
-            // ALWAYS set up initials input listener (matching simple_report_app exactly - no null check)
-            console.log('=== LOOKING FOR ELEMENTS ===');
-            const initialsInput = document.getElementById('initialsInput');
-            const nextButton = document.getElementById('nextButton1');
-            
-            const elementInfo = {
-                initialsInputFound: !!initialsInput,
-                nextButtonFound: !!nextButton,
-                initialsInputValue: initialsInput ? initialsInput.value : 'N/A',
-                nextButtonDisabled: nextButton ? nextButton.disabled : 'N/A',
-                allElements: document.querySelectorAll('*').length,
-                step1Exists: !!document.getElementById('step1'),
-                step1Classes: document.getElementById('step1') ? document.getElementById('step1').className : 'N/A'
-            };
-            
-            console.log('Element lookup results:', elementInfo);
-            debugLog('PAGE_LOAD', 'Element lookup', elementInfo);
-            
-            // If elements not found, log error immediately
-            if (!initialsInput) {
-                console.error('=== ERROR: initialsInput element NOT FOUND! ===');
-                console.error('Document body:', document.body);
-                console.error('All inputs:', document.querySelectorAll('input'));
-                debugLog('ERROR', 'initialsInput element NOT FOUND in DOM', {
-                    allInputs: Array.from(document.querySelectorAll('input')).map(i => ({id: i.id, name: i.name, type: i.type}))
-                });
-            }
-            if (!nextButton) {
-                console.error('=== ERROR: nextButton1 element NOT FOUND! ===');
-                console.error('All buttons:', document.querySelectorAll('button'));
-                debugLog('ERROR', 'nextButton1 element NOT FOUND in DOM', {
-                    allButtons: Array.from(document.querySelectorAll('button')).map(b => ({id: b.id, className: b.className}))
-                });
-            }
-            
-            if (initialsInput && nextButton) {
-                // Log initial button state
-                debugLog('BUTTON_STATUS', 'Initial button state on page load', {
-                    buttonDisabled: nextButton.disabled,
-                    buttonReadOnly: nextButton.readOnly,
-                    buttonType: nextButton.type,
-                    inputValue: initialsInput.value,
-                    inputValueLength: initialsInput.value.length,
-                    inputDisabled: initialsInput.disabled,
-                    inputReadOnly: initialsInput.readOnly
-                });
-                
-                // Also add a click listener to the button for debugging
-                nextButton.addEventListener('click', function(e) {
-                    debugLog('BUTTON_CLICK_EVENT', 'Button click event fired', {
-                        buttonDisabled: this.disabled,
-                        inputValue: initialsInput.value,
-                        eventDefaultPrevented: e.defaultPrevented
-                    });
-                });
-                
-                initialsInput.addEventListener('input', (e) => {
-                    const value = e.target.value.trim();
-                    const button = document.getElementById('nextButton1');
-                    const wasDisabled = button ? button.disabled : 'unknown';
-                    
-                    if (button) {
-                        button.disabled = value.length === 0;
-                    }
-                    
-                    debugLog('INPUT_CHANGE', 'Input value changed', {
-                        inputValue: e.target.value,
-                        trimmedValue: value,
-                        trimmedLength: value.length,
-                        buttonWasDisabled: wasDisabled,
-                        buttonNowDisabled: button ? button.disabled : 'button not found',
-                        buttonElementExists: !!button
-                    });
-                });
-                
-                initialsInput.addEventListener('focus', () => {
-                    debugLog('INPUT_FOCUS', 'Input field received focus', {
-                        currentValue: initialsInput.value,
-                        buttonDisabled: nextButton ? nextButton.disabled : 'button not found'
-                    });
-                });
-                
-                // Prevent form submission on Enter (matching simple_report_app)
-                initialsInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        const button = document.getElementById('nextButton1');
-                        debugLog('ENTER_KEY', 'Enter key pressed', {
-                            inputValue: initialsInput.value,
-                            buttonDisabled: button ? button.disabled : 'button not found',
-                            willCallGoToStep2: button && !button.disabled
-                        });
-                        if (button && !button.disabled) {
-                            goToStep2();
-                        }
-                    }
-                });
-            } else {
-                debugLog('ERROR', 'initialsInput element not found!');
-            }
-            
-            const isAdmin = {{ 'true' if is_admin else 'false' }};
-            debugLog('PAGE_LOAD', 'User type determined', { isAdmin: isAdmin });
-            
-            if (isAdmin) {
-                // Admin user - show step1, hide step2
-                // Check for saved initials on load (matching simple_report_app)
-                const savedInitials = localStorage.getItem('userInitials');
-                if (savedInitials) {
-                    userInitials = savedInitials;
-                    debugLog('PAGE_LOAD', 'Loaded saved initials from localStorage', { savedInitials: savedInitials });
-                }
-                // Ensure step1 is visible and step2 is hidden
-                const step1 = document.getElementById('step1');
-                const step2 = document.getElementById('step2');
-                if (step1) step1.classList.remove('hidden');
-                if (step2) step2.classList.add('hidden');
-                debugLog('PAGE_LOAD', 'Admin: Showing step1, hiding step2', {
-                    step1Exists: !!step1,
-                    step2Exists: !!step2,
-                    step1HasHidden: step1 ? step1.classList.contains('hidden') : 'N/A',
-                    step2HasHidden: step2 ? step2.classList.contains('hidden') : 'N/A'
-                });
-            } else if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
-                // User is approved - hide step1, show step2
-                document.getElementById('step1').classList.add('hidden');
+            if (userInitials && userInitials !== '' && userInitials !== '{{ user_initials }}') {
+                // User is approved - show step2
                 showStep2();
             } else {
-                // User is NOT approved - hide step1, show error screen
-                document.getElementById('step1').classList.add('hidden');
+                // User is NOT approved - show error screen
                 showUnauthorizedError();
             }
         });
         
-        // goToStep2 function - matching simple_report_app exactly
-        function goToStep2() {
-            const initialsInput = document.getElementById('initialsInput');
-            const nextButton = document.getElementById('nextButton1');
-            
-            debugLog('BUTTON_CLICK', 'goToStep2() called', {
-                initialsInputExists: !!initialsInput,
-                nextButtonExists: !!nextButton,
-                inputValue: initialsInput ? initialsInput.value : 'N/A',
-                buttonDisabled: nextButton ? nextButton.disabled : 'N/A'
-            });
-            
-            if (!initialsInput) {
-                debugLog('ERROR', 'initialsInput not found in goToStep2()');
-                return;
-            }
-            
-            userInitials = initialsInput.value.trim();
-            
-            if (!userInitials) {
-                debugLog('ERROR', 'userInitials is empty in goToStep2()');
-                return;
-            }
-            
-            debugLog('BUTTON_CLICK', 'Proceeding with goToStep2', { userInitials: userInitials });
-            
-            // Save initials to localStorage (matching simple_report_app)
-            localStorage.setItem('userInitials', userInitials);
-            
-            // Transition to step 2 (matching simple_report_app exactly)
-            transitionTo('step1', 'step2', () => {
-                // Set welcome message (matching simple_report_app)
-                const welcomeText = 'Welcome';
-                document.getElementById('welcomeMessage').innerHTML = 
-                    `${welcomeText}, <span style="font-style: italic;">${userInitials}</span>!`;
-                
-                // Load user's accounts (matching simple_report_app)
-                loadUserAccounts(userInitials);
-            });
-        }
-        
-        // Make function globally accessible (for onclick attribute)
-        window.goToStep2 = goToStep2;
 
         function showUnauthorizedError() {
             // Ensure step6 is visible and step2 is hidden (should already be from template)
@@ -801,9 +601,6 @@ def index():
     print("PAGE LOAD: Getting user data for template")
     print("="*70)
     
-    # Check if user is admin first
-    is_admin = is_admin_user()
-    
     if preloaded_user_data:
         user_initials = preloaded_user_data.get('initials')
         user_accounts = preloaded_user_data.get('accounts', [])
@@ -814,19 +611,15 @@ def index():
         user_accounts = []
         print(f"Fallback: Getting user initials now: {user_initials}")
     
-    if is_admin:
-        print(f"✓ ADMIN USER: {user_initials} - Showing admin page")
-    elif user_initials:
+    if user_initials:
         print(f"✓ APPROVED USER: {user_initials} - Passing to template")
     else:
         print("✗ UNAUTHORIZED USER - Will show error screen")
     
     print("="*70)
     print(f"TEMPLATE RENDERING DEBUG:")
-    print(f"  is_admin: {is_admin}")
     print(f"  user_initials: {user_initials}")
-    print(f"  step1 will be: {'visible' if is_admin else 'hidden'}")
-    print(f"  step2 will be: {'hidden' if is_admin else 'visible' if user_initials else 'hidden'}")
+    print(f"  step2 will be: {'visible' if user_initials else 'hidden'}")
     print("="*70)
     print("NOTE: If you don't see DEBUG messages after this, JavaScript may not be executing")
     print("Check browser console (F12) for JavaScript errors")
@@ -841,7 +634,6 @@ def index():
     
     return render_template_string(MAIN_TEMPLATE, 
                                 user_initials=user_initials or '',
-                                is_admin=is_admin,
                                 accounts_json=accounts_json,
                                 account_id='',
                                 account_name='',
@@ -1667,16 +1459,6 @@ def preload_user_data():
             print("✗ UNAUTHORIZED USER - Will show error screen")
             preloaded_user_data = {
                 'initials': None,
-                'accounts': []
-            }
-            return
-        
-        # Check if admin - admins don't need accounts pre-loaded
-        is_admin = is_admin_user()
-        if is_admin:
-            print(f"✓ ADMIN USER: {user_initials} - Skipping account pre-load (will enter manually)")
-            preloaded_user_data = {
-                'initials': user_initials,
                 'accounts': []
             }
             return
