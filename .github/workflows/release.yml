@@ -107,6 +107,7 @@ jobs:
         }
     
     - name: Create GitHub Release
+      id: create-release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.version.outputs.tag }}
@@ -121,6 +122,59 @@ jobs:
         prerelease: false
         generate_release_notes: false
         make_latest: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Remove source code archives from release
+      shell: pwsh
+      run: |
+        $tag = "${{ steps.version.outputs.tag }}"
+        $repo = "${{ github.repository }}"
+        $token = "${{ secrets.GITHUB_TOKEN }}"
+        
+        Write-Host "Removing source code archives from release $tag"
+        
+        $headers = @{
+          "Authorization" = "token $token"
+          "Accept" = "application/vnd.github.v3+json"
+        }
+        
+        # Get release by tag
+        $releaseUrl = "https://api.github.com/repos/$repo/releases/tags/$tag"
+        try {
+          $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -Method Get
+          Write-Host "Found release ID: $($release.id)"
+          
+          # Get all assets for this release
+          $assetsUrl = "https://api.github.com/repos/$repo/releases/$($release.id)/assets"
+          $assets = Invoke-RestMethod -Uri $assetsUrl -Headers $headers -Method Get
+          
+          # Filter for source code archives (GitHub auto-generates these)
+          # They're typically named "Source code (zip)" and "Source code (tar.gz)"
+          # or match patterns like repo-name-tag.zip/tar.gz
+          $sourceArchives = $assets | Where-Object { 
+            $_.name -like "*Source code*" -or 
+            ($_.name -like "*.zip" -and $_.name -notlike "*.exe") -or 
+            ($_.name -like "*.tar.gz")
+          }
+          
+          if ($sourceArchives) {
+            $sourceArchives | ForEach-Object {
+              $assetId = $_.id
+              $assetName = $_.name
+              Write-Host "Deleting source code archive: $assetName (ID: $assetId)"
+              
+              $deleteUrl = "https://api.github.com/repos/$repo/releases/assets/$assetId"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+            }
+            Write-Host "✓ Source code archives removed"
+          } else {
+            Write-Host "No source code archives found to remove"
+          }
+        } catch {
+          Write-Host "Error removing source code archives: $_"
+          Write-Host "This is non-fatal - release was created successfully"
+        }
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
