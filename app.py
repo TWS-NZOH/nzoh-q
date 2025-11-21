@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-B2B Insights Report App - Complete Solution
+Quantitative Sales Report App - Complete Solution
 Single file that handles everything: dependencies, web interface, and report generation
 """
 
@@ -68,14 +68,7 @@ def get_user_initials_from_system():
             sf_client = SalesforceClient()
         
         # Get initials (this will apply TWS->CYK mapping in credentials_manager)
-        initials = sf_client.get_user_initials()
-        
-        if initials:
-            print(f"✓ get_user_initials_from_system() returned: {initials}")
-        else:
-            print(f"✗ get_user_initials_from_system() returned: None")
-        
-        return initials
+        return sf_client.get_user_initials()
     except Exception as e:
         print(f"✗ Exception in get_user_initials_from_system(): {str(e)}")
         import traceback
@@ -93,8 +86,6 @@ def query_user_accounts_from_salesforce(username):
         domains = ['novozymes.com', 'novonesis.com']
         all_results = []
         
-        print(f"DEBUG: Searching for accounts owned by username: {username}")
-        
         # Try exact matches with both domains first
         # Only show parent accounts (or standalone accounts) - exclude child accounts
         # Exclude any account name starting with '(' which indicates child accounts
@@ -109,16 +100,13 @@ def query_user_accounts_from_salesforce(username):
                 ORDER BY Name ASC
             """
             
-            print(f"DEBUG: Trying exact match: {full_username}")
             result = sf.query_all(query)
             
             if len(result['records']) > 0:
-                print(f"DEBUG: Found {len(result['records'])} parent/standalone accounts with exact match")
                 all_results.extend(result['records'])
         
         # If no exact matches, use LIKE query to find accounts with username prefix
         if len(all_results) == 0:
-            print(f"DEBUG: No exact match found, using pattern match...")
             like_query = f"""
                 SELECT Id, Name, Owner.Username
                 FROM Account
@@ -126,10 +114,7 @@ def query_user_accounts_from_salesforce(username):
                 AND (NOT Name LIKE '(%')
                 ORDER BY Name ASC
             """
-            print(f"DEBUG: Executing LIKE query for '{username}@%'")
             like_result = sf.query_all(like_query)
-            
-            print(f"DEBUG: Found {len(like_result['records'])} parent/standalone accounts with pattern match")
             all_results.extend(like_result['records'])
         
         # Process results into account list
@@ -141,8 +126,6 @@ def query_user_accounts_from_salesforce(username):
                     'id': record['Id'],
                     'name': account_name
                 })
-        
-        print(f"DEBUG: Returning {len(accounts)} accounts")
         return accounts
         
     except Exception as e:
@@ -159,7 +142,7 @@ MAIN_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B2B Insights - Q</title>
+    <title>Quantitative Sales - Q</title>
     <link rel="stylesheet" href="/static/css/landing.css">
 </head>
 <body>
@@ -552,7 +535,7 @@ RESULTS_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B2B Insights - Report Results</title>
+    <title>Quantitative Sales - Report Results</title>
     <style>
         body { 
             margin: 0; 
@@ -698,8 +681,6 @@ def get_user_accounts():
         domains = ['novozymes.com', 'novonesis.com']
         all_results = []
         
-        print(f"DEBUG: Searching for accounts owned by username: {username}")
-        
         # Try exact matches with both domains first
         # Only show parent accounts (or standalone accounts) - exclude child accounts
         # Exclude any account name starting with '(' which indicates child accounts
@@ -714,20 +695,15 @@ def get_user_accounts():
                 ORDER BY Name ASC
             """
             
-            print(f"DEBUG: Trying exact match: {full_username}")
-            print(f"       Filtering: Exclude account names starting with '('")
-            print(f"       Note: query_all() will automatically paginate to get ALL matching accounts")
             result = sf.query_all(query)
             
             if len(result['records']) > 0:
-                print(f"DEBUG: Found {len(result['records'])} parent/standalone accounts with exact match")
                 all_results.extend(result['records'])
         
         # If no exact matches, use LIKE query to find accounts with username prefix
         # Only show parent accounts (or standalone accounts) - exclude child accounts
         # Exclude any account name starting with '(' which indicates child accounts
         if len(all_results) == 0:
-            print(f"DEBUG: No exact match found, using pattern match...")
             # Use LIKE query to match any domain
             like_query = f"""
                 SELECT Id, Name, Owner.Username
@@ -736,18 +712,10 @@ def get_user_accounts():
                 AND (NOT Name LIKE '(%')
                 ORDER BY Name ASC
             """
-            print(f"DEBUG: Executing LIKE query for '{username}@%'")
-            print(f"       Filtering: Exclude account names starting with '('")
-            print(f"       Note: query_all() will automatically paginate to get ALL matching accounts")
             like_result = sf.query_all(like_query)
-            
-            print(f"DEBUG: Found {len(like_result['records'])} parent/standalone accounts with pattern match")
             all_results.extend(like_result['records'])
         
-        # Log what we found
-        print(f"\n{'='*80}")
-        print(f"ANALYZING RETURNED ACCOUNTS (showing first 10 for debugging)")
-        print(f"{'='*80}")
+        # Process accounts
         
         accounts = []
         seen_ids = set()  # Avoid duplicates
@@ -793,8 +761,6 @@ def get_user_accounts():
                 'name': clean_name
             })
         
-        print(f"\nDEBUG: Filtered out {child_prefix_count} accounts with child prefixes")
-        print(f"DEBUG: Returning {len(accounts)} parent/standalone accounts")
         
         return jsonify({
             'success': True,
@@ -867,7 +833,6 @@ def analyze_account():
         print(f"{'='*80}\n")
         
         # Detailed debug for this account
-        print(f"🔍 ACCOUNT RELATIONSHIP DEBUG:")
         try:
             debug_query = f"""
                 SELECT Id, Name, Owner.Username, MBL_Is_Child_Account__c, MBL_Custom_ParentAccountId_18__c
@@ -1209,7 +1174,7 @@ def check_and_install_dependencies():
 def main():
     """Main function to start the application"""
     print("=" * 70)
-    print("🚀 B2B Insights - Report Generator")
+    print("🚀 Quantitative Sales - Report Generator")
     print("=" * 70)
     
     # Check dependencies

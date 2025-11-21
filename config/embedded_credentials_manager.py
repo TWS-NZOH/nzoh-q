@@ -108,10 +108,8 @@ class EmbeddedCredentialsManager:
             str: User initials (e.g., 'BECOB') or None if not found
         """
         username = self._get_windows_username()
-        print(f"DEBUG: _get_windows_username() returned: {username}")
         
         if not username:
-            print("DEBUG: No username detected, returning None")
             return None
         
         # TESTING: Map TWS to CYK for testing purposes
@@ -122,15 +120,10 @@ class EmbeddedCredentialsManager:
             print(f"✓ TESTING: Mapped {original_username} to {username} for testing")
         
         # Check if username is in approved list
-        approved_list = [user.upper() for user in self.approved_users]
-        print(f"DEBUG: Checking if '{username}' is in approved list: {approved_list}")
-        
-        if username in approved_list:
-            print(f"✓ Username '{username}' is approved")
+        if username in [user.upper() for user in self.approved_users]:
             return username
-        else:
-            print(f"✗ Username '{username}' is NOT in approved list")
-            return None
+        
+        return None
     
     def is_user_approved(self):
         """Check if current user is approved"""

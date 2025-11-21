@@ -107,13 +107,6 @@ class SalesforceClient:
     def get_user_initials(self):
         """Get user initials from Windows username (if using embedded credentials)"""
         if self.use_embedded and hasattr(self.credentials_manager, 'get_user_initials'):
-            print("DEBUG: Calling credentials_manager.get_user_initials()")
-            result = self.credentials_manager.get_user_initials()
-            print(f"DEBUG: credentials_manager.get_user_initials() returned: {result}")
-            return result
-        else:
-            print(f"DEBUG: Not using embedded credentials or get_user_initials not available")
-            print(f"  use_embedded: {self.use_embedded}")
-            print(f"  has get_user_initials: {hasattr(self.credentials_manager, 'get_user_initials') if self.credentials_manager else 'No credentials_manager'}")
+            return self.credentials_manager.get_user_initials()
         return None
 
