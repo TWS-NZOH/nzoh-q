@@ -111,6 +111,11 @@ class EmbeddedCredentialsManager:
         if not username:
             return None
         
+        # TESTING: Map TWS to CYK for testing purposes
+        if username == 'TWS':
+            username = 'CYK'
+            print(f"TESTING: Mapped TWS to CYK for testing")
+        
         # Check if username is in approved list
         if username in [user.upper() for user in self.approved_users]:
             return username
