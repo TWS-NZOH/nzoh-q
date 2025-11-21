@@ -51,6 +51,7 @@ CORS(app)
 # Global variables
 current_analysis_result = None
 sf_client = None
+preloaded_user_data = None  # Store pre-loaded user data (initials and accounts)
 
 def get_salesforce_connection():
     """Get or create Salesforce connection using secure credentials"""
@@ -68,6 +69,76 @@ def get_user_initials_from_system():
     except Exception:
         return None
 
+def query_user_accounts_from_salesforce(username):
+    """Query Salesforce for accounts owned by a specific user (same logic as API endpoint)"""
+    try:
+        # Set up Salesforce connection
+        sf = get_salesforce_connection()
+        
+        # Construct full email patterns to search
+        # Try both novozymes.com and novonesis.com domains
+        domains = ['novozymes.com', 'novonesis.com']
+        all_results = []
+        
+        print(f"DEBUG: Searching for accounts owned by username: {username}")
+        
+        # Try exact matches with both domains first
+        # Only show parent accounts (or standalone accounts) - exclude child accounts
+        # Exclude any account name starting with '(' which indicates child accounts
+        for domain in domains:
+            full_username = username if '@' in username else f"{username}@{domain}"
+            
+            query = f"""
+                SELECT Id, Name, Owner.Username
+                FROM Account
+                WHERE Owner.Username = '{full_username}'
+                AND (NOT Name LIKE '(%')
+                ORDER BY Name ASC
+            """
+            
+            print(f"DEBUG: Trying exact match: {full_username}")
+            result = sf.query_all(query)
+            
+            if len(result['records']) > 0:
+                print(f"DEBUG: Found {len(result['records'])} parent/standalone accounts with exact match")
+                all_results.extend(result['records'])
+        
+        # If no exact matches, use LIKE query to find accounts with username prefix
+        if len(all_results) == 0:
+            print(f"DEBUG: No exact match found, using pattern match...")
+            like_query = f"""
+                SELECT Id, Name, Owner.Username
+                FROM Account
+                WHERE Owner.Username LIKE '{username}@%'
+                AND (NOT Name LIKE '(%')
+                ORDER BY Name ASC
+            """
+            print(f"DEBUG: Executing LIKE query for '{username}@%'")
+            like_result = sf.query_all(like_query)
+            
+            print(f"DEBUG: Found {len(like_result['records'])} parent/standalone accounts with pattern match")
+            all_results.extend(like_result['records'])
+        
+        # Process results into account list
+        accounts = []
+        for record in all_results:
+            account_name = record.get('Name', '')
+            if account_name:
+                accounts.append({
+                    'id': record['Id'],
+                    'name': account_name
+                })
+        
+        print(f"DEBUG: Returning {len(accounts)} accounts")
+        return accounts
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"ERROR querying user accounts: {str(e)}")
+        print(f"ERROR details: {error_details}")
+        return []
+
 # HTML Templates
 MAIN_TEMPLATE = """
 <!DOCTYPE html>
@@ -81,7 +152,7 @@ MAIN_TEMPLATE = """
 <body>
     <div class="landing-container">
         <!-- Step 1: Initial greeting and initials input -->
-        <div id="step1" class="step">
+        <div id="step1" class="step {% if user_initials %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q" id="qIcon">
             </div>
@@ -103,7 +174,7 @@ MAIN_TEMPLATE = """
         </div>
 
         <!-- Step 2: Account selection -->
-        <div id="step2" class="step hidden">
+        <div id="step2" class="step {% if not user_initials %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -150,7 +221,7 @@ MAIN_TEMPLATE = """
         </div>
 
         <!-- Step 6: Unauthorized user state -->
-        <div id="step6" class="step hidden">
+        <div id="step6" class="step {% if user_initials %}hidden{% endif %}">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -160,35 +231,26 @@ MAIN_TEMPLATE = """
 
     <script>
         // State management
-        let userInitials = '';
+        // Get pre-loaded data from template (passed from server at page load)
+        let userInitials = {{ user_initials|tojson }};
         let selectedAccountId = '';
         let selectedAccountName = '';
-        let userAccounts = [];
+        let userAccounts = {{ accounts_json|safe }};
         let isReturningUser = false;
 
-        // Automatically get system username on load and query accounts
-        window.addEventListener('DOMContentLoaded', async () => {
-            // ALWAYS use system username - no manual input fallback
-            try {
-                const response = await fetch('/api/get_system_initials');
-                const result = await response.json();
-                if (result.success && result.initials) {
-                    userInitials = result.initials;
-                    isReturningUser = true;
-                    // Automatically skip step 1 and go directly to step 2
-                    // This will automatically call loadUserAccounts() which queries Salesforce
-                    goToStep2();
-                    return;
-                } else {
-                    // System username not found - show error
-                    console.error('Could not get system initials:', result);
-                    showUnauthorizedError();
-                    return;
-                }
-            } catch (error) {
-                console.error('Error getting system initials:', error);
+        // Page is already rendered with correct state from server-side template
+        // If user_initials is set, we already have accounts loaded and should show step2
+        window.addEventListener('DOMContentLoaded', () => {
+            // Trim user initials
+            userInitials = (userInitials || '').toString().trim();
+            
+            if (userInitials && userInitials !== '') {
+                // User is approved - show step2 directly with pre-loaded accounts
+                isReturningUser = true;
+                showStep2();
+            } else {
+                // User is NOT approved - show error screen
                 showUnauthorizedError();
-                return;
             }
         });
 
@@ -200,8 +262,8 @@ MAIN_TEMPLATE = """
             if (step6) step6.classList.remove('hidden');
         }
 
-        function goToStep2() {
-            // userInitials should already be set from system username
+        function showStep2() {
+            // userInitials should already be set from pre-loaded data
             if (!userInitials) {
                 console.error('userInitials not set - cannot proceed');
                 showUnauthorizedError();
@@ -211,16 +273,31 @@ MAIN_TEMPLATE = """
             // Save initials to localStorage
             localStorage.setItem('userInitials', userInitials);
             
-            // Transition to step 2
-            transitionTo('step1', 'step2', () => {
-                // Set welcome message
-                const welcomeText = isReturningUser ? 'Welcome back' : 'Welcome';
-                document.getElementById('welcomeMessage').innerHTML = 
-                    `${welcomeText}, <span style="font-style: italic;">${userInitials}</span>!`;
-                
-                // Load user's accounts - this automatically queries Salesforce on launch
+            // Ensure step2 is visible and step1/step6 are hidden
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step6 = document.getElementById('step6');
+            
+            if (step1) step1.classList.add('hidden');
+            if (step6) step6.classList.add('hidden');
+            if (step2) {
+                step2.classList.remove('hidden');
+                step2.style.display = ''; // Ensure visible
+            }
+            
+            // Set welcome message
+            const welcomeText = isReturningUser ? 'Welcome back' : 'Welcome';
+            document.getElementById('welcomeMessage').innerHTML = 
+                `${welcomeText}, <span style="font-style: italic;">${userInitials}</span>!`;
+            
+            // If accounts are already pre-loaded, use them; otherwise load them
+            if (userAccounts && Array.isArray(userAccounts) && userAccounts.length > 0) {
+                // Accounts already loaded from server - just populate dropdown
+                populateAccountDropdown(userAccounts);
+            } else {
+                // Fallback: load accounts (shouldn't happen if pre-loading works)
                 loadUserAccounts(userInitials);
-            });
+            }
         }
 
         async function loadUserAccounts(initials) {
@@ -502,7 +579,26 @@ RESULTS_TEMPLATE = """
 @app.route('/')
 def index():
     """Main page with account selection"""
+    global preloaded_user_data
+    
+    # Use pre-loaded data if available, otherwise get it now
+    if preloaded_user_data:
+        user_initials = preloaded_user_data.get('initials')
+        user_accounts = preloaded_user_data.get('accounts', [])
+        print(f"Using pre-loaded data: {user_initials}, {len(user_accounts)} accounts")
+    else:
+        # Fallback: get data now (shouldn't happen if pre-loading works)
+        user_initials = get_user_initials_from_system()
+        user_accounts = []
+        print(f"Fallback: Getting user initials now: {user_initials}")
+    
+    # Convert accounts to JSON for template
+    import json
+    accounts_json = json.dumps(user_accounts) if user_accounts else '[]'
+    
     return render_template_string(MAIN_TEMPLATE, 
+                                user_initials=user_initials or '',
+                                accounts_json=accounts_json,
                                 account_id='',
                                 account_name='',
                                 generated_time='',
@@ -1116,6 +1212,48 @@ def main():
         return
     
     print("✓ All requirements met")
+    
+    # PRE-LOAD user data BEFORE starting server
+    print("\n" + "="*70)
+    print("PRE-LOADING: Checking authorization and loading accounts")
+    print("="*70)
+    
+    global preloaded_user_data
+    
+    try:
+        # Get user initials (with TWS->CYK mapping)
+        user_initials = get_user_initials_from_system()
+        
+        if not user_initials:
+            print("✗ UNAUTHORIZED USER - Will show error screen")
+            preloaded_user_data = {
+                'initials': None,
+                'accounts': []
+            }
+        else:
+            print(f"✓ APPROVED USER: {user_initials}")
+            
+            # Pre-load accounts from Salesforce
+            print(f"Querying Salesforce for accounts owned by {user_initials}...")
+            accounts = query_user_accounts_from_salesforce(user_initials)
+            
+            print(f"✓ Pre-loaded {len(accounts)} accounts")
+            
+            preloaded_user_data = {
+                'initials': user_initials,
+                'accounts': accounts
+            }
+            
+    except Exception as e:
+        print(f"⚠ Error during pre-loading: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        preloaded_user_data = {
+            'initials': None,
+            'accounts': []
+        }
+    
+    print("="*70 + "\n")
     
     # Setup port (kill existing processes and find available port)
     port = setup_port(5000)
