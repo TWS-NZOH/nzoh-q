@@ -114,15 +114,27 @@ def generate_account_description(account_name: str, products: List[Dict], gauge_
     len_low_stock = len(low_stock_products)
     len_top_performers_low = len(top_performers_low_stock)
     
+    # Get list of all low stock product names
+    low_stock_names = [p.get('name', 'Unknown') for p in low_stock_products]
+    if len_low_stock > 0:
+        if len_low_stock <= 5:
+            # Show all product names if 5 or fewer
+            product_list = ", ".join(low_stock_names)
+        else:
+            # Show first 5 and count of remaining
+            product_list = ", ".join(low_stock_names[:5]) + f", and {len_low_stock - 5} more which can be seen on the right"
+    else:
+        product_list = ""
+    
     if len_top_performers_low > 0:
         top_performer_names = ", ".join([p.get('name', 'Unknown') for p in top_performers_low_stock])
         description_parts.append(
-            f"{account_name} is generally {gauge_status}. Let's focus on {len_low_stock} products they might not have enough of. "
+            f"{account_name} is generally {gauge_status}. Let's focus on {len_low_stock} products they might not have enough of: {product_list}. "
             f"Note these include {len_top_performers_low} of their top performers ({top_performer_names})."
         )
     else:
         description_parts.append(
-            f"{account_name} is generally {gauge_status}. Let's focus on {len_low_stock} products they might not have enough of."
+            f"{account_name} is generally {gauge_status}. Let's focus on {len_low_stock} products they might not have enough of: {product_list}."
         )
     
     # Second paragraph - suggestions for top performers (without the out-of-stock note)
