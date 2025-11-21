@@ -14,11 +14,19 @@
         .left-panel { 
             width: 40%; 
             background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            background-attachment: local;
             color: white;
             padding: 2rem;
             display: flex;
             flex-direction: column;
             position: relative;
+            overflow-y: auto;
+            min-height: 100vh;
+        }
+        
+        .left-panel > * {
+            position: relative;
+            z-index: 1;
         }
         
         .top-section {
@@ -124,7 +132,10 @@
         }
         .status-text { font-size: 0.85rem; opacity: 0.9; font-style: italic; margin-top: 0.25rem; }
         
-        .budgets-section { margin-top: auto; }
+        .budgets-section { 
+            margin-top: auto; 
+            padding-bottom: 2rem;
+        }
         .budgets-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
         .budget-item { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
         .budget-label { opacity: 0.9; }
