@@ -62,11 +62,24 @@ def get_salesforce_connection():
 
 def get_user_initials_from_system():
     """Get user initials from Windows username if approved"""
+    global sf_client
     try:
         if sf_client is None:
             sf_client = SalesforceClient()
-        return sf_client.get_user_initials()
-    except Exception:
+        
+        # Get initials (this will apply TWS->CYK mapping in credentials_manager)
+        initials = sf_client.get_user_initials()
+        
+        if initials:
+            print(f"✓ get_user_initials_from_system() returned: {initials}")
+        else:
+            print(f"✗ get_user_initials_from_system() returned: None")
+        
+        return initials
+    except Exception as e:
+        print(f"✗ Exception in get_user_initials_from_system(): {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def query_user_accounts_from_salesforce(username):
