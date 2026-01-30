@@ -5,7 +5,7 @@
 # [ ] Pipe amazon thru sellingview
 # [ ] NuHealth data not displaying for recent orders
 
-import pandas_ta as ta
+import pandas_ta_classic as ta
 import pandas as pd
 from simple_salesforce import Salesforce, SFBulkHandler
 import plotly.graph_objects as go
@@ -2735,7 +2735,7 @@ def list_available_product_images() -> list:
 # [ ] Pipe amazon thru sellingview
 # [ ] NuHealth data not displaying for recent orders
 
-import pandas_ta as ta
+import pandas_ta_classic as ta
 import pandas as pd
 from simple_salesforce import Salesforce, SFBulkHandler
 import plotly.graph_objects as go

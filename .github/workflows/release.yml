@@ -54,7 +54,7 @@ jobs:
         Write-Host "Installing dependencies..."
         python -m pip install --upgrade pip
         # Install dependencies directly (requirements.txt not in repo)
-        pip install Flask>=2.3.0 Flask-CORS>=4.0.0 pandas>=2.0.0 pandas-ta>=0.3.14b0 simple-salesforce>=1.12.0 plotly>=5.15.0 numpy>=1.21.0 python-dateutil>=2.8.0 requests>=2.31.0 Werkzeug>=2.3.0 cryptography>=41.0.0 pyinstaller>=5.13.0 Pillow>=10.0.0
+        pip install Flask>=2.3.0 Flask-CORS>=4.0.0 pandas>=2.0.0 pandas-ta-classic>=0.3.59 simple-salesforce>=1.12.0 plotly>=5.15.0 numpy>=1.21.0 python-dateutil>=2.8.0 requests>=2.31.0 Werkzeug>=2.3.0 cryptography>=41.0.0 pyinstaller>=5.13.0 Pillow>=10.0.0
         Write-Host "✓ Dependencies installed"
         
     - name: Build executable

@@ -20,7 +20,7 @@ a = Analysis(
         'flask',
         'flask_cors',
         'pandas',
-        'pandas_ta',
+        'pandas_ta_classic',
         'simple_salesforce',
         'plotly',
         'numpy',

@@ -32,34 +32,6 @@ else:
 sys.path.insert(0, str(app_dir))
 sys.path.insert(0, str(scripts_dir))
 
-def check_user_authorization():
-    """Check if current user is authorized (Windows username check)"""
-    try:
-        from config.embedded_credentials_manager import EmbeddedCredentialsManager
-        manager = EmbeddedCredentialsManager()
-        if manager.is_user_approved():
-            username = manager._get_windows_username()
-            print(f"Authorized user detected: {username}")
-            return True
-        else:
-            username = manager._get_windows_username()
-            print(f"User '{username}' is not authorized")
-            print(f"Approved users: {', '.join(manager.approved_users)}")
-            return False
-    except Exception as e:
-        print(f"Warning: Could not check authorization: {e}")
-        print("Continuing anyway...")
-        return True  # Allow to continue if check fails
-
-def check_credentials_embedded():
-    """Check if credentials are embedded"""
-    try:
-        from config.embedded_credentials import ENCRYPTED_CREDENTIALS
-        if ENCRYPTED_CREDENTIALS and ENCRYPTED_CREDENTIALS.strip():
-            return True
-        return False
-    except Exception:
-        return False
 
 def launch_app():
     """Launch the main application"""
@@ -132,31 +104,9 @@ def create_desktop_shortcut():
         print(f"Warning: Could not create desktop shortcut: {e}")
 
 def main():
-    """Main launcher function"""
-    # Header already printed at script start
-    
-    # Check user authorization
-    if not check_user_authorization():
-        print("\n" + "=" * 70)
-        print("ACCESS DENIED")
-        print("=" * 70)
-        print("\nYou are not authorized to use this application.")
-        print("Please contact the administrator if you believe this is an error.")
-        input("\nPress Enter to exit...")
-        return
-    
-    # Check if credentials are embedded
-    if not check_credentials_embedded():
-        print("Warning: Credentials not embedded!")
-        print("The application may not work correctly.")
-        print("Please ensure credentials are embedded in config/embedded_credentials.py")
-        response = input("\nContinue anyway? (yes/no) [no]: ").strip().lower()
-        if response not in ['yes', 'y']:
-            return
-    
+    """Main launcher function. Credentials are read from env (Azure App Service / Key Vault)."""
     # Create desktop shortcut if it doesn't exist
     create_desktop_shortcut()
-    
     # Launch the app
     launch_app()
 

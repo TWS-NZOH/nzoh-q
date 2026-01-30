@@ -51,29 +51,15 @@ CORS(app)
 # Global variables
 current_analysis_result = None
 sf_client = None
-preloaded_user_data = None  # Store pre-loaded user data (initials and accounts)
+
 
 def get_salesforce_connection():
-    """Get or create Salesforce connection using secure credentials"""
+    """Get or create Salesforce connection using Azure/env credentials."""
     global sf_client
     if sf_client is None:
         sf_client = SalesforceClient()
     return sf_client.get_connection()
 
-def get_user_initials_from_system():
-    """Get user initials from Windows username if approved"""
-    global sf_client
-    try:
-        if sf_client is None:
-            sf_client = SalesforceClient()
-        
-        # Get initials (this will apply TWS->CYK mapping in credentials_manager)
-        return sf_client.get_user_initials()
-    except Exception as e:
-        print(f"✗ Exception in get_user_initials_from_system(): {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return None
 
 def query_user_accounts_from_salesforce(username):
     """Query Salesforce for accounts owned by a specific user (same logic as API endpoint)"""
@@ -147,8 +133,8 @@ MAIN_TEMPLATE = """
 </head>
 <body>
     <div class="landing-container">
-        <!-- Step 1: Initial greeting and initials input -->
-        <div id="step1" class="step {% if user_initials %}hidden{% endif %}">
+        <!-- Step 1: Hi, I'm Q - what are your initials? -->
+        <div id="step1" class="step">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q" id="qIcon">
             </div>
@@ -169,8 +155,8 @@ MAIN_TEMPLATE = """
             </div>
         </div>
 
-        <!-- Step 2: Account selection -->
-        <div id="step2" class="step {% if not user_initials %}hidden{% endif %}">
+        <!-- Step 2: Account selection (shown after user enters initials and clicks next) -->
+        <div id="step2" class="step hidden">
             <div class="q-icon">
                 <img src="/static/images/q-icon.svg" alt="Q">
             </div>
@@ -215,14 +201,6 @@ MAIN_TEMPLATE = """
                 <button class="back-button" onclick="goBackFromError()">back</button>
             </div>
         </div>
-
-        <!-- Step 6: Unauthorized user state -->
-        <div id="step6" class="step {% if user_initials %}hidden{% endif %}">
-            <div class="q-icon">
-                <img src="/static/images/q-icon.svg" alt="Q">
-            </div>
-            <div class="error-message">Sorry, I don't recognise you</div>
-        </div>
     </div>
 
     <script>
@@ -234,65 +212,56 @@ MAIN_TEMPLATE = """
         let userAccounts = {{ accounts_json|safe }};
         let isReturningUser = false;
 
-        // Page is already rendered with correct state from server-side template
-        // If user_initials is set, we already have accounts loaded and should show step2
+        // Step 1 is always shown first; user enters initials and clicks next to load accounts
         window.addEventListener('DOMContentLoaded', () => {
-            // Trim user initials
             userInitials = (userInitials || '').toString().trim();
-            
-            if (userInitials && userInitials !== '') {
-                // User is approved - show step2 directly with pre-loaded accounts
-                isReturningUser = true;
-                showStep2();
-            } else {
-                // User is NOT approved - show error screen
-                showUnauthorizedError();
+            userAccounts = userAccounts && Array.isArray(userAccounts) ? userAccounts : [];
+            // Enable "next" on step 1 when user types initials
+            const initialsInput = document.getElementById('initialsInput');
+            const nextBtn1 = document.getElementById('nextButton1');
+            if (initialsInput && nextBtn1) {
+                initialsInput.addEventListener('input', () => {
+                    nextBtn1.disabled = !initialsInput.value.trim();
+                });
+                initialsInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && initialsInput.value.trim()) goToStep2();
+                });
             }
         });
 
-        function showUnauthorizedError() {
-            // Hide step1 and show step6 (unauthorized error)
-            const step1 = document.getElementById('step1');
-            const step6 = document.getElementById('step6');
-            if (step1) step1.classList.add('hidden');
-            if (step6) step6.classList.remove('hidden');
+        async function goToStep2() {
+            const input = document.getElementById('initialsInput');
+            if (!input) return;
+            const raw = input.value.trim();
+            if (!raw) return;
+            userInitials = raw;
+            try {
+                await loadUserAccounts(userInitials);
+            } catch (e) {
+                console.error('Failed to load accounts', e);
+                userAccounts = [];
+            }
+            showStep2();
         }
 
         function showStep2() {
-            // userInitials should already be set from pre-loaded data
-            if (!userInitials) {
-                console.error('userInitials not set - cannot proceed');
-                showUnauthorizedError();
-                return;
-            }
-            
-            // Save initials to localStorage
+            if (!userInitials) return;
             localStorage.setItem('userInitials', userInitials);
-            
-            // Ensure step2 is visible and step1/step6 are hidden
             const step1 = document.getElementById('step1');
             const step2 = document.getElementById('step2');
-            const step6 = document.getElementById('step6');
-            
             if (step1) step1.classList.add('hidden');
-            if (step6) step6.classList.add('hidden');
             if (step2) {
                 step2.classList.remove('hidden');
-                step2.style.display = ''; // Ensure visible
+                step2.style.display = '';
             }
-            
-            // Set welcome message
             const welcomeText = isReturningUser ? 'Welcome back' : 'Welcome';
-            document.getElementById('welcomeMessage').innerHTML = 
+            document.getElementById('welcomeMessage').innerHTML =
                 `${welcomeText}, <span style="font-style: italic;">${userInitials}</span>!`;
-            
-            // If accounts are already pre-loaded, use them; otherwise load them
-            if (userAccounts && Array.isArray(userAccounts) && userAccounts.length > 0) {
-                // Accounts already loaded from server - just populate dropdown
+            if (userAccounts && userAccounts.length > 0) {
                 populateAccountDropdown(userAccounts);
             } else {
-                // Fallback: load accounts (shouldn't happen if pre-loading works)
-                loadUserAccounts(userInitials);
+                const dropdown = document.getElementById('accountDropdown');
+                if (dropdown) dropdown.innerHTML = '<div class="account-option" style="cursor: default; opacity: 0.6;">No accounts found</div>';
             }
         }
 
@@ -574,32 +543,17 @@ RESULTS_TEMPLATE = """
 
 @app.route('/')
 def index():
-    """Main page with account selection"""
-    global preloaded_user_data
-    
-    # Use pre-loaded data if available, otherwise get it now
-    if preloaded_user_data:
-        user_initials = preloaded_user_data.get('initials')
-        user_accounts = preloaded_user_data.get('accounts', [])
-        print(f"Using pre-loaded data: {user_initials}, {len(user_accounts)} accounts")
-    else:
-        # Fallback: get data now (shouldn't happen if pre-loading works)
-        user_initials = get_user_initials_from_system()
-        user_accounts = []
-        print(f"Fallback: Getting user initials now: {user_initials}")
-    
-    # Convert accounts to JSON for template
-    import json
-    accounts_json = json.dumps(user_accounts) if user_accounts else '[]'
-    
-    return render_template_string(MAIN_TEMPLATE, 
-                                user_initials=user_initials or '',
-                                accounts_json=accounts_json,
-                                account_id='',
-                                account_name='',
-                                generated_time='',
-                                text_report='',
-                                html_report='')
+    """Main page: step 1 is initials input; accounts load when user clicks next."""
+    return render_template_string(
+        MAIN_TEMPLATE,
+        user_initials="",
+        accounts_json="[]",
+        account_id="",
+        account_name="",
+        generated_time="",
+        text_report="",
+        html_report="",
+    )
 
 @app.route('/results')
 def results():
@@ -622,36 +576,6 @@ def serve_image(filename):
     images_dir = app_dir / "images"
     return send_from_directory(images_dir, filename)
 
-@app.route('/api/get_system_initials', methods=['GET'])
-def get_system_initials():
-    """Get user initials from Windows username if approved"""
-    try:
-        initials = get_user_initials_from_system()
-        if initials:
-            return jsonify({
-                'success': True,
-                'initials': initials,
-                'source': 'system'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'initials': None,
-                'message': 'User not found in approved list or could not detect username'
-            })
-    except PermissionError as e:
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'initials': None
-        }), 403
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'initials': None
-        }), 500
-
 @app.route('/api/get_user_accounts', methods=['POST'])
 def get_user_accounts():
     """Get accounts owned by a specific user"""
@@ -665,17 +589,17 @@ def get_user_accounts():
         # Set up Salesforce connection using secure credentials
         try:
             sf = get_salesforce_connection()
-        except FileNotFoundError as e:
+        except ValueError as e:
             return jsonify({
-                'success': False,
-                'error': 'Credentials not configured. Please run setup_credentials.py first.'
+                "success": False,
+                "error": "Credentials not configured. Set SALESFORCE_* in App Service / Key Vault.",
             }), 500
         except Exception as e:
             return jsonify({
-                'success': False,
-                'error': f'Failed to connect to Salesforce: {str(e)}'
+                "success": False,
+                "error": f"Failed to connect to Salesforce: {str(e)}",
             }), 500
-        
+
         # Construct full email patterns to search
         # Try both novozymes.com and novonesis.com domains
         domains = ['novozymes.com', 'novonesis.com']
@@ -797,20 +721,20 @@ def analyze_account():
         # Set up Salesforce connection using secure credentials
         try:
             sf = get_salesforce_connection()
-        except FileNotFoundError as e:
+        except ValueError as e:
             return jsonify({
-                'success': False,
-                'error': 'Credentials not configured. Please run setup_credentials.py first.'
+                "success": False,
+                "error": "Credentials not configured. Set SALESFORCE_USERNAME, SALESFORCE_PASSWORD, SALESFORCE_SECURITY_TOKEN in App Service / Key Vault.",
             }), 500
         except Exception as e:
             return jsonify({
-                'success': False,
-                'error': f'Failed to connect to Salesforce: {str(e)}'
+                "success": False,
+                "error": f"Failed to connect to Salesforce: {str(e)}",
             }), 500
-        
+
         # Set the global sf variable in indicators_report module
         indicators_report.sf = sf
-        
+
         # Get account info (name and owner)
         account_info = indicators_report.get_account_info(account_id)
         account_name = account_info['name']
@@ -924,9 +848,8 @@ def analyze_account():
         dashboard_data = parse_sales_dashboard_data(text_report)
         
         # Create the sales dashboard HTML
-        # Get the current port for absolute URLs (needed for data URL iframe)
-        current_port = request.environ.get('SERVER_PORT', '5000')
-        base_url = f"http://localhost:{current_port}"
+        # Use request host so links work on Azure (e.g. *.azurewebsites.net); fallback to localhost for local dev
+        base_url = request.url_root.rstrip('/') if request.url_root else f"http://localhost:{request.environ.get('SERVER_PORT', '5000')}"
         
         sales_dashboard_html = create_sales_dashboard_html(
             account_name, 
@@ -1144,7 +1067,7 @@ def check_and_install_dependencies():
     print("Checking dependencies...")
     
     required_modules = [
-        'pandas', 'pandas_ta', 'simple_salesforce', 
+        'pandas', 'pandas_ta_classic', 'simple_salesforce', 
         'plotly', 'numpy', 'flask', 'flask_cors'
     ]
     
@@ -1189,75 +1112,40 @@ def main():
         input("Press Enter to exit...")
         return
     
-    print("✓ All requirements met")
+    print("✓ All requirements met\n")
+
+    # Port: use PORT from environment (Azure App Service) or find available port locally
+    port_env = os.environ.get('PORT')
+    if port_env:
+        try:
+            port = int(port_env)
+        except ValueError:
+            port = 5000
+        host = '0.0.0.0'  # Required for Azure/cloud so the platform can send traffic to the app
+    else:
+        port = setup_port(5000)
+        if not port:
+            print("✗ Could not find an available port")
+            input("Press Enter to exit...")
+            return
+        host = '127.0.0.1'  # Local only when running on dev machine
     
-    # PRE-LOAD user data BEFORE starting server
-    print("\n" + "="*70)
-    print("PRE-LOADING: Checking authorization and loading accounts")
-    print("="*70)
-    
-    global preloaded_user_data
-    
-    try:
-        # Get user initials (with TWS->CYK mapping)
-        user_initials = get_user_initials_from_system()
-        
-        if not user_initials:
-            print("✗ UNAUTHORIZED USER - Will show error screen")
-            preloaded_user_data = {
-                'initials': None,
-                'accounts': []
-            }
-        else:
-            print(f"✓ APPROVED USER: {user_initials}")
-            
-            # Pre-load accounts from Salesforce
-            print(f"Querying Salesforce for accounts owned by {user_initials}...")
-            accounts = query_user_accounts_from_salesforce(user_initials)
-            
-            print(f"✓ Pre-loaded {len(accounts)} accounts")
-            
-            preloaded_user_data = {
-                'initials': user_initials,
-                'accounts': accounts
-            }
-            
-    except Exception as e:
-        print(f"⚠ Error during pre-loading: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        preloaded_user_data = {
-            'initials': None,
-            'accounts': []
-        }
-    
-    print("="*70 + "\n")
-    
-    # Setup port (kill existing processes and find available port)
-    port = setup_port(5000)
-    if not port:
-        print("✗ Could not find an available port")
-        input("Press Enter to exit...")
-        return
-    
-    print(f"\nStarting web server on port {port}...")
+    print(f"\nStarting web server on {host}:{port}...")
     print("The application will open in your browser automatically")
     print("Press Ctrl+C to stop the server")
     print("=" * 70)
     
-    # Open browser after a short delay
-    def open_browser():
-        time.sleep(2)
-        webbrowser.open(f"http://localhost:{port}")
-    
-    browser_thread = threading.Thread(target=open_browser, daemon=True)
-    browser_thread.start()
+    # Open browser after a short delay (only when running locally)
+    if host == '127.0.0.1':
+        def open_browser():
+            time.sleep(2)
+            webbrowser.open(f"http://localhost:{port}")
+        browser_thread = threading.Thread(target=open_browser, daemon=True)
+        browser_thread.start()
     
     # Start Flask app
-    # Use 127.0.0.1 (localhost) instead of 0.0.0.0 to avoid Windows Firewall prompts
-    # This only listens on localhost, not external network interfaces
     try:
-        app.run(debug=False, host='127.0.0.1', port=port, use_reloader=False)
+        app.run(debug=False, host=host, port=port, use_reloader=False)
     except KeyboardInterrupt:
         print("\nApplication stopped by user")
 
