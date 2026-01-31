@@ -244,7 +244,7 @@ def create_ohlcv_from_orders(orders, resolution='1M', ma_window=90):
         'TotalAmount': 'sum',
         'volume': 'sum',
         'unit_price': 'mean'  # Take mean of unit price for the day
-    }).fillna(method='ffill')  # Forward fill unit prices
+    }).ffill()  # Forward fill unit prices
     
     # Calculate simple MA without normalization
     daily_df['MA'] = daily_df['TotalAmount'].rolling(
@@ -270,7 +270,7 @@ def create_ohlcv_from_orders(orders, resolution='1M', ma_window=90):
     # Initialize OHLCV DataFrame
     ohlcv = pd.DataFrame(index=grouped.index)
     ohlcv['volume'] = grouped['volume']
-    ohlcv['unit_price'] = grouped['unit_price'].fillna(method='ffill')  # Forward fill unit prices
+    ohlcv['unit_price'] = grouped['unit_price'].ffill()  # Forward fill unit prices
     
     # Initialize is_live column (marks current open candle)
     ohlcv['is_live'] = False
@@ -589,7 +589,7 @@ def create_product_ohlcv(order_products, product_id, resolution='3D', ma_window=
         'TotalPrice': 'sum',
         'Quantity': 'sum',
         'UnitPrice': 'mean'  # Keep consistent unit price
-    }).fillna(method='ffill')  # Forward fill unit prices
+    }).ffill()  # Forward fill unit prices
     
     # Calculate simple MA without normalization
     daily_df['MA'] = daily_df['TotalPrice'].rolling(
@@ -619,7 +619,7 @@ def create_product_ohlcv(order_products, product_id, resolution='3D', ma_window=
     # Create OHLCV DataFrame
     ohlcv = pd.DataFrame(index=grouped.index)
     ohlcv['volume'] = grouped['Quantity']
-    ohlcv['unit_price'] = daily_df['UnitPrice'].resample(freq).mean().fillna(method='ffill')
+    ohlcv['unit_price'] = daily_df['UnitPrice'].resample(freq).mean().ffill()
     
     # Initialize is_live column (marks current open candle)
     ohlcv['is_live'] = False
@@ -2970,7 +2970,7 @@ def create_ohlcv_from_orders(orders, resolution='1M', ma_window=90):
         'TotalAmount': 'sum',
         'volume': 'sum',
         'unit_price': 'mean'  # Take mean of unit price for the day
-    }).fillna(method='ffill')  # Forward fill unit prices
+    }).ffill()  # Forward fill unit prices
     
     # Calculate simple MA without normalization
     daily_df['MA'] = daily_df['TotalAmount'].rolling(
@@ -2996,7 +2996,7 @@ def create_ohlcv_from_orders(orders, resolution='1M', ma_window=90):
     # Initialize OHLCV DataFrame
     ohlcv = pd.DataFrame(index=grouped.index)
     ohlcv['volume'] = grouped['volume']
-    ohlcv['unit_price'] = grouped['unit_price'].fillna(method='ffill')  # Forward fill unit prices
+    ohlcv['unit_price'] = grouped['unit_price'].ffill()  # Forward fill unit prices
     
     # Initialize is_live column (marks current open candle)
     ohlcv['is_live'] = False
@@ -3315,7 +3315,7 @@ def create_product_ohlcv(order_products, product_id, resolution='3D', ma_window=
         'TotalPrice': 'sum',
         'Quantity': 'sum',
         'UnitPrice': 'mean'  # Keep consistent unit price
-    }).fillna(method='ffill')  # Forward fill unit prices
+    }).ffill()  # Forward fill unit prices
     
     # Calculate simple MA without normalization
     daily_df['MA'] = daily_df['TotalPrice'].rolling(
@@ -3345,7 +3345,7 @@ def create_product_ohlcv(order_products, product_id, resolution='3D', ma_window=
     # Create OHLCV DataFrame
     ohlcv = pd.DataFrame(index=grouped.index)
     ohlcv['volume'] = grouped['Quantity']
-    ohlcv['unit_price'] = daily_df['UnitPrice'].resample(freq).mean().fillna(method='ffill')
+    ohlcv['unit_price'] = daily_df['UnitPrice'].resample(freq).mean().ffill()
     
     # Initialize is_live column (marks current open candle)
     ohlcv['is_live'] = False

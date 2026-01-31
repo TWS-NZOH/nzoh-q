@@ -885,8 +885,11 @@ def analyze_account():
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
-        print(f"Error in analyze_account: {str(e)}")
-        print(tb)
+        msg = f"Error in analyze_account: {type(e).__name__}: {str(e)}"
+        print(msg, flush=True)
+        print(tb, flush=True)
+        sys.stderr.write(msg + "\n" + tb + "\n")
+        sys.stderr.flush()
         return jsonify({
             'success': False,
             'error': f'Server error: {str(e)}',
