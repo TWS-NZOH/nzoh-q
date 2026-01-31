@@ -707,11 +707,12 @@ def get_user_accounts():
 def analyze_account():
     """Run the indicators report analysis"""
     global current_analysis_result
-    
+
     try:
         data = request.get_json()
         account_id = data.get('account_id')
-        
+        print(f"[analyze] Starting analysis for account_id={account_id}")
+
         if not account_id:
             return jsonify({'error': 'account_id is required', 'success': False}), 400
         
@@ -734,6 +735,7 @@ def analyze_account():
 
         # Set the global sf variable in indicators_report module
         indicators_report.sf = sf
+        print("[analyze] Salesforce connected, fetching account info")
 
         # Get account info (name and owner)
         account_info = indicators_report.get_account_info(account_id)
@@ -807,9 +809,11 @@ def analyze_account():
         print(f"\n{'='*80}\n")
         
         # Get orders and distribute FS orders
+        print("[analyze] Fetching orders from Salesforce")
         orders = indicators_report.get_account_orders(account_id, analysis_start, end_date)
         distributed_orders = indicators_report.distribute_monthly_orders(orders)
-        
+        print(f"[analyze] Orders: {len(orders)} raw, {len(distributed_orders)} distributed")
+
         # Create and run the combined analysis
         # Returns data in memory (no disk I/O) - eliminates path resolution issues in PyInstaller
         analysis_result = indicators_report.create_combined_analysis(
@@ -842,8 +846,9 @@ def analyze_account():
             }), 500
         
         # Import sales dashboard functions
+        print("[analyze] Building sales dashboard HTML")
         from sales_dashboard import parse_sales_dashboard_data, create_sales_dashboard_html
-        
+
         # Parse the text report for dashboard data (from memory, no file read)
         dashboard_data = parse_sales_dashboard_data(text_report)
         
@@ -878,10 +883,14 @@ def analyze_account():
         })
         
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
         print(f"Error in analyze_account: {str(e)}")
+        print(tb)
         return jsonify({
             'success': False,
-            'error': f'Server error: {str(e)}'
+            'error': f'Server error: {str(e)}',
+            'error_type': type(e).__name__,
         }), 500
 
 def find_output_files(account_name):
